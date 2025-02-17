@@ -2,12 +2,11 @@ package org.example.ai.mlflow
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -21,15 +20,13 @@ import org.example.ai.mlflow.dataclasses.TracePatchRequest
 import org.example.ai.mlflow.dataclasses.TracePostRequest
 import org.example.ai.model.ModelData
 import org.example.ai.model.createModelYaml
-import org.mlflow.api.proto.Service
-import org.mlflow.tracking.MlflowClient
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.time.Instant
 
-const val ML_FLOW_API = "http://localhost:5001/api/2.0/mlflow"
+private const val ML_FLOW_API = "http://localhost:8080/api/2.0/mlflow"
 private const val USER_ID = "Anton.Bragin"
 
 private val client = HttpClient(CIO) {
@@ -49,8 +46,7 @@ data class RunCreationData(
 
 @Serializable
 data class Tag(
-    @SerialName("key") val key: String,
-    @SerialName("value") val value: String
+    @SerialName("key") val key: String, @SerialName("value") val value: String
 )
 
 @Serializable
@@ -90,11 +86,7 @@ data class Inputs(
 )
 
 enum class RunStatus {
-    RUNNING,
-    SCHEDULED,
-    FINISHED,
-    FAILED,
-    KILLED
+    RUNNING, SCHEDULED, FINISHED, FAILED, KILLED
 }
 
 fun getCurrentTimestamp(): Long {
@@ -115,11 +107,7 @@ suspend fun createRun(name: String, experimentId: String, source: String? = getC
         Tag(key = "mlflow.source.type", value = "LOCAL")
     )
     val run = RunCreationData(
-        experimentId = experimentId,
-        userId = USER_ID,
-        runName = name,
-        startTime = getCurrentTimestamp(),
-        tags = tags
+        experimentId = experimentId, userId = USER_ID, runName = name, startTime = getCurrentTimestamp(), tags = tags
     )
 
     val result = client.post("${ML_FLOW_API}/runs/create") {
@@ -131,34 +119,12 @@ suspend fun createRun(name: String, experimentId: String, source: String? = getC
     return runResult.run
 }
 
-fun createRun(client: MlflowClient, name: String, experimentId: String, source: String? = getCallerInfo()): Service.RunInfo? {
-    val runData = Service.CreateRun.newBuilder().apply {
-        setExperimentId(experimentId)
-        setUserId(USER_ID)
-        setRunName(name)
-        setStartTime(getCurrentTimestamp())
-
-        listOfNotNull(
-            Tag(key = "mlflow.user", value = USER_ID),
-            source?.let { Tag(key = "mlflow.source.name", value = it) },
-            Tag(key = "mlflow.source.type", value = "LOCAL")
-        ).forEach { tag ->
-            addTags(Service.RunTag.newBuilder().setKey(tag.key).setValue(tag.value).build())
-        }
-    }.build()
-
-    val runInfo = client.createRun(runData)
-    return runInfo
-}
-
 suspend fun updateRun(runId: String, runStatus: RunStatus) {
     client.post("${ML_FLOW_API}/runs/update") {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
-                "run_id" to runId,
-                "status" to runStatus.name,
-                "end_time" to getCurrentTimestamp().toString()
+                "run_id" to runId, "status" to runStatus.name, "end_time" to getCurrentTimestamp().toString()
             )
         )
     }
@@ -169,8 +135,7 @@ suspend fun logModel(runId: String, modelJson: String) {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
-                "run_id" to runId,
-                "model_json" to modelJson
+                "run_id" to runId, "model_json" to modelJson
             )
         )
     }
@@ -193,8 +158,7 @@ suspend fun createExperiment(name: String): String {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
-                "name" to name,
-                "artifact_location" to "file:///Users/Anton.Bragin/PycharmProjects/mlflow-test/mlruns/0"
+                "name" to name, "artifact_location" to "file:///Users/Anton.Bragin/PycharmProjects/mlflow-test/mlruns/0"
             )
         )
     }
@@ -214,9 +178,7 @@ suspend fun getExperiment(experimentId: String): Experiment {
 
 suspend fun logBatch(runId: String, metrics: List<Metric>, params: List<Param> = emptyList()) {
     val runData = RunMetricsData(
-        runId = runId,
-        metrics = metrics,
-        params = params
+        runId = runId, metrics = metrics, params = params
     )
 
     client.post("${ML_FLOW_API}/runs/log-batch") {
@@ -225,14 +187,13 @@ suspend fun logBatch(runId: String, metrics: List<Metric>, params: List<Param> =
     }
 }
 
-suspend fun trace(experimentId: String, runId: String, source: String? = null, tracingJson: JsonObject) {
+suspend fun trace(experimentId: String, runId: String? = null, source: String? = null, tracingJson: JsonObject) {
     val trace = TracePostRequest(
         experimentId = experimentId,
         requestMetadata = emptyList(),
         tags = listOfNotNull(
             source?.let { org.example.ai.mlflow.dataclasses.Tag("mlflow.source.name", it) },
-            source?.let { org.example.ai.mlflow.dataclasses.Tag("mlflow.source.type", "LOCAL") }
-        )
+            source?.let { org.example.ai.mlflow.dataclasses.Tag("mlflow.source.type", "LOCAL") })
     )
 
     val postResponse = client.post("${ML_FLOW_API}/traces") {
@@ -243,20 +204,14 @@ suspend fun trace(experimentId: String, runId: String, source: String? = null, t
     val traceResponse = Json.decodeFromString<TraceInfoResponse>(postResponse.bodyAsText()).traceInfo
 
     val patch = TracePatchRequest(
-        traceResponse.requestId,
-        status = "OK",
-        requestMetadata = listOf(
-            RequestMetadata(
-                "mlflow.sourceRun", runId
-            ),
-            RequestMetadata(
-                "mlflow.traceInputs", Json.encodeToString(tracingJson.jsonObject["request"])
-            ),
-            RequestMetadata(
-                "mlflow.traceOutputs", Json.encodeToString(tracingJson.jsonObject["response"])
-            ),
-        ),
-        tags = emptyList()
+        traceResponse.requestId, status = "OK", requestMetadata = buildList {
+            add(RequestMetadata("mlflow.trace_schema.version", "2"))
+            runId?.let {
+                add(RequestMetadata("mlflow.sourceRun", it))
+            }
+            add(RequestMetadata("mlflow.traceInputs", Json.encodeToString(tracingJson.jsonObject["request"])))
+            add(RequestMetadata("mlflow.traceOutputs", Json.encodeToString(tracingJson.jsonObject["response"])))
+        }, tags = emptyList()
     )
 
     val patchResponse = client.patch("${ML_FLOW_API}/traces/${traceResponse.requestId}") {
@@ -264,13 +219,41 @@ suspend fun trace(experimentId: String, runId: String, source: String? = null, t
         setBody(patch)
     }
 
+
+
     // PATCH http://127.0.0.1:5000/api/2.0/mlflow/traces/3c30419648254c2baec65937d238957a/tags HTTP/1.1
-    val samplePatchTagRequest = """
+//    val samplePatchTagRequest = """
+//        {
+//            "key": "mlflow.traceSpans",
+//            "value": "[{\"name\": \"Completions\", \"type\": \"CHAT_MODEL\", \"inputs\": [\"messages\", \"model\"], \"outputs\": [\"id\", \"choices\", \"created\", \"model\", \"object\", \"service_tier\", \"system_fingerprint\", \"usage\"]}]"
+//        }
+//    """.trimIndent()
+    val request = """
         {
-            "key": "mlflow.traceSpans",
-            "value": "[{\"name\": \"Completions\", \"type\": \"CHAT_MODEL\", \"inputs\": [\"messages\", \"model\"], \"outputs\": [\"id\", \"choices\", \"created\", \"model\", \"object\", \"service_tier\", \"system_fingerprint\", \"usage\"]}]"
+          "key": "mlflow.source.name",
+          "value": "/Users/Viacheslav.Suvorov/PythonProject3/test.py"
+        },
+        {
+          "key": "mlflow.traceSpans",
+          "value": "[{\"name\": \"Trace Test\", \"type\": \"UNKNOWN\", \"inputs\": [\"x\"]}]"
+        },
+        {
+          "key": "mlflow.source.type",
+          "value": "LOCAL"
+        },
+        {
+          "key": "mlflow.traceName",
+          "value": "Trace Test"
         }
     """.trimIndent()
+    client.patch("${ML_FLOW_API}/traces/${traceResponse.requestId}/tags") {
+        contentType(ContentType.Application.Json)
+        setBody(request)
+    }
+
+    client.put("http://127.0.0.1:5000/api/2.0/mlflow-artifacts/artifacts/972740590184434201/traces/28274771b096489c96ce5b827fd46253/artifacts/traces.json") {
+
+    }
 
     // TODO: client.patch("${ML_FLOW_API}/traces/$traceId"
 }
@@ -280,10 +263,7 @@ suspend fun setTag(runId: String, key: String, value: String) {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
-                "run_id" to runId,
-                "run_uuid" to runId,
-                "key" to key,
-                "value" to value
+                "run_id" to runId, "run_uuid" to runId, "key" to key, "value" to value
             )
         )
     }
@@ -299,15 +279,12 @@ data class RunMetricsData(
 
 @Serializable
 data class Metric(
-    val key: String,
-    val value: Double,
-    val timestamp: Long = getCurrentTimestamp()
+    val key: String, val value: Double, val timestamp: Long = getCurrentTimestamp()
 )
 
 @Serializable
 data class Param(
-    val key: String,
-    val value: String
+    val key: String, val value: String
 )
 
 @Serializable
