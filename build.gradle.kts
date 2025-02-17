@@ -18,7 +18,7 @@ dependencies {
     implementation("com.google.inject:guice:7.0.0")
     implementation("com.openai:openai-java:0.21.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.mlflow:mlflow-client:2.8.0")
+    implementation("org.mlflow:mlflow-client:2.20.1")
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-cio:$ktor_version")
     implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
