@@ -1,0 +1,39 @@
+package org.example.ai.mlflow.dataclasses
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class SpanArtifactsRequest(
+    @SerialName("spans") val spans: List<Span>,
+    @SerialName("request") val request: String,
+    @SerialName("response") val response: String,
+)
+
+@Serializable
+data class Span(
+    @SerialName("name") val name: String,
+    @SerialName("context") val context: SpanContext,
+    @SerialName("parent_id") val parentId: String? = null,
+    @SerialName("start_time") val startTime: Long,
+    @SerialName("end_time") val endTime: Long,
+    @SerialName("status_code") val statusCode: String,
+    @SerialName("status_message") val statusMessage: String = "",
+    @SerialName("attributes") val attributes: Attributes,
+    @SerialName("events") val events: List<String> = emptyList()
+)
+
+@Serializable
+data class SpanContext(
+    @SerialName("span_id") val spanId: String,
+    @SerialName("trace_id") val traceId: String
+)
+
+@Serializable
+data class Attributes(
+    @SerialName("mlflow.traceRequestId") val traceRequestId: String,
+    @SerialName("mlflow.spanType") val spanType: String = "UNKNOWN",
+    @SerialName("mlflow.spanFunctionName") val spanFunctionName: String,
+    @SerialName("mlflow.spanInputs") val spanInputs: String,
+    @SerialName("mlflow.spanOutputs") val spanOutputs: String
+)
