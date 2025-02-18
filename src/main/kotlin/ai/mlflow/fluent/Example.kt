@@ -15,11 +15,13 @@ open class MyClass {
 
     @KotlinFlowTrace
     open fun a(x: Int): Int {
+        Thread.sleep(300)
         return x - 1
     }
 
     @KotlinFlowTrace
     open fun b(x: Int): Int {
+        Thread.sleep(200)
         return x + 1
     }
 }
@@ -34,9 +36,9 @@ fun main() {
             launch {
                 myClass.someFunction(2, 4)
             }
-//            launch {
-//                myClass.someFunction(3, 5)
-//            }
+            launch {
+                myClass.someFunction(3, 5)
+            }
         }
     }
 }

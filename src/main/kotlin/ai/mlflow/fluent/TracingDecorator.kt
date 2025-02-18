@@ -11,44 +11,21 @@ import io.opentelemetry.context.Context
 import io.opentelemetry.context.Scope
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import org.aopalliance.intercept.MethodInterceptor
 import org.aopalliance.intercept.MethodInvocation
 import org.example.ai.mlflow.createTrace
 import org.example.ai.mlflow.dataclasses.RequestMetadata
 import org.example.ai.mlflow.dataclasses.Tag
 import org.example.ai.mlflow.dataclasses.TraceInfo
-import org.example.ai.mlflow.dataclasses.TraceInfoResponse
 import org.example.ai.mlflow.dataclasses.TracePostRequest
 import org.mlflow.tracking.MlflowClient
 import java.time.Instant
+import kotlin.reflect.KParameter.Kind
+import kotlin.reflect.full.declaredFunctions
 
 fun generateRandomString(length: Int = 10): String {
     val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     return (1..length).map { chars.random() }.joinToString("")
-}
-
-data class Argument(
-    val name: String, val value: Any
-)
-
-data class EndTraceInfo(
-    val path: String,
-    val methodName: String,
-    val startTime: Long,
-    val endTime: Long,
-    val arguments: List<Argument>,
-    val result: Any
-) {
-    fun argumentsAsJson(): JsonObject {
-        return buildJsonObject {
-            arguments.forEach { argument ->
-                put(argument.name, JsonPrimitive(argument.value.toString()))
-            }
-        }
-    }
 }
 
 data class TraceCreationInfo(
@@ -108,12 +85,9 @@ class KotlinFlowTracer : MethodInterceptor {
     @Throws(Throwable::class)
     override fun invoke(invocation: MethodInvocation): Any {
         val methodName = invocation.method.name
-        val span = createSpan(methodName, invocation)
 
-        val argsJson = invocation.arguments
-            .mapIndexed { index, argument -> "\"arg$index\": $argument" }
-            .joinToString(prefix = "{", postfix = "}")
-        span.setAttribute("mlflow.spanInputs", argsJson)
+        val span = createSpan(methodName, invocation)
+        span.setAttribute("mlflow.spanInputs", extractInputs(invocation))
 
         val scope: Scope = span.makeCurrent()
         return try {
@@ -128,6 +102,17 @@ class KotlinFlowTracer : MethodInterceptor {
             span.end()
             scope.close()
         }
+    }
+
+    private fun extractInputs(invocation: MethodInvocation): String {
+        val methodName = invocation.method.name
+        return invocation.method.declaringClass.kotlin.declaredFunctions.find { it.name == methodName }!!.parameters
+            .filter { it.kind != Kind.INSTANCE }
+            .mapIndexed { index, parameter ->
+                val paramName = parameter.name ?: "arg$index"
+                "\"$paramName\": ${invocation.arguments[index]}"
+            }
+            .joinToString(prefix = "{", postfix = "}")
     }
 }
 

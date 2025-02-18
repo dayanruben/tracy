@@ -15,7 +15,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.example.ai.mlflow.dataclasses.*
-import org.example.ai.mlflow.fluent.EndTraceInfo
 import org.example.ai.mlflow.fluent.TraceCreationInfo
 import org.example.ai.model.ModelData
 import org.example.ai.model.createModelYaml
