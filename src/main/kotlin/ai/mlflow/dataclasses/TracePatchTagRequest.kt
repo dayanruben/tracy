@@ -7,7 +7,7 @@ import kotlinx.serialization.json.*
 data class TracePatchTagRequest(
     @SerialName("name") val name: String,
     @SerialName("type") val type: String,
-    @SerialName("inputs") val inputs: List<String>
+    @SerialName("inputs") val inputs: String
 ) {
     override fun toString(): String {
         return Json.encodeToString(this)

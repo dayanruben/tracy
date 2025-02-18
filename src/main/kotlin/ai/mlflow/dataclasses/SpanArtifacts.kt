@@ -1,13 +1,67 @@
 package org.example.ai.mlflow.dataclasses
 
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.sdk.trace.data.SpanData
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.example.ai.mlflow.Tag
+import org.example.ai.mlflow.fluent.RootSpanExporter
+
+fun List<SpanData>.toSpanArtifactsRequest(requestId: String) = this.map { spanData ->
+    Span(
+        name = spanData.name,
+        context = SpanContext(
+            spanId = spanData.spanId,
+            traceId = spanData.traceId
+        ),
+        parentId = spanData.parentSpanId.takeUnless { it == RootSpanExporter.EMPTY_PARENT_ID },
+        startTime = spanData.startEpochNanos,
+        endTime = spanData.endEpochNanos,
+        statusCode = "OK",
+        attributes = Attributes(
+            traceRequestId = requestId,
+            // TODO change to function name, not a name of the span
+            spanFunctionName = spanData.name,
+            spanInputs = spanData.attributes[AttributeKey.stringKey("mlflow.spanInputs")],
+            spanOutputs = spanData.attributes[AttributeKey.stringKey("mlflow.spanOutputs")]
+        ),
+        events = emptyList()
+    )
+}
+
+fun List<SpanData>.toTracePatchTagRequest() =
+    Tag(
+        key = "mlflow.traceSpans",
+        value = this.map { spanData ->
+            TracePatchTagRequest(
+                // TODO change to function name, not a name of the span
+                name = spanData.name,
+                type = "UNKNOWN",
+                inputs = spanData.attributes[AttributeKey.stringKey("mlflow.spanInputs")].toString()
+            )
+        }.toString()
+    )
+
+fun List<SpanData>.toTracePatchRequest() =
+    Tag(
+        key = "mlflow.traceSpans",
+        value = this.map { spanData ->
+            TracePatchTagRequest(
+                // TODO change to function name, not a name of the span
+                name = spanData.name,
+                type = "UNKNOWN",
+                inputs = spanData.attributes[AttributeKey.stringKey("mlflow.spanInputs")].toString()
+            )
+        }.toString()
+    )
+
+
 
 @Serializable
 data class SpanArtifactsRequest(
     @SerialName("spans") val spans: List<Span>,
-    @SerialName("request") val request: String,
-    @SerialName("response") val response: String,
+    @SerialName("request") val request: String?,
+    @SerialName("response") val response: String?,
 )
 
 @Serializable
@@ -25,8 +79,7 @@ data class Span(
 
 @Serializable
 data class SpanContext(
-    @SerialName("span_id") val spanId: String,
-    @SerialName("trace_id") val traceId: String
+    @SerialName("span_id") val spanId: String, @SerialName("trace_id") val traceId: String
 )
 
 @Serializable
@@ -34,6 +87,6 @@ data class Attributes(
     @SerialName("mlflow.traceRequestId") val traceRequestId: String,
     @SerialName("mlflow.spanType") val spanType: String = "UNKNOWN",
     @SerialName("mlflow.spanFunctionName") val spanFunctionName: String,
-    @SerialName("mlflow.spanInputs") val spanInputs: String,
-    @SerialName("mlflow.spanOutputs") val spanOutputs: String
+    @SerialName("mlflow.spanInputs") val spanInputs: String?,
+    @SerialName("mlflow.spanOutputs") val spanOutputs: String?
 )

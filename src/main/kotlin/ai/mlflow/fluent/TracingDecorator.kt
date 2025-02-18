@@ -10,6 +10,7 @@ import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.context.Context
 import io.opentelemetry.context.Scope
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -18,6 +19,8 @@ import org.aopalliance.intercept.MethodInvocation
 import org.example.ai.mlflow.createTrace
 import org.example.ai.mlflow.dataclasses.RequestMetadata
 import org.example.ai.mlflow.dataclasses.Tag
+import org.example.ai.mlflow.dataclasses.TraceInfo
+import org.example.ai.mlflow.dataclasses.TraceInfoResponse
 import org.example.ai.mlflow.dataclasses.TracePostRequest
 import org.mlflow.tracking.MlflowClient
 import java.time.Instant
@@ -55,15 +58,17 @@ data class TraceCreationInfo(
     val traceName: String
 ) {
     fun createTracePostRequest() = TracePostRequest(
-        experimentId = experimentId, timestampMs = startTime, requestMetadata = listOf(
+        experimentId = experimentId,
+        timestampMs = startTime,
+        requestMetadata = listOf(
             RequestMetadata(key = "mlflow.trace_schema.version", value = "2")
-        ), tags = listOf(
+        ),
+        tags = listOf(
             Tag("mlflow.source.name", traceCreationPath),
             Tag("mlflow.source.type", "LOCAL"),
             Tag("mlflow.traceName", traceName)
         )
     )
-
 }
 
 @BindingAnnotation
@@ -91,11 +96,11 @@ class KotlinFlowTracer : MethodInterceptor {
                 traceCreationPath = invocation.method.declaringClass.name,
                 traceName = spanName
             )
-            // Get rid of run blocking
-            val traceInfoResponse = runBlocking {
+            // TODO Get rid of run blocking
+            val traceInfo = runBlocking {
                 createTrace(traceCreationInfo)
             }
-            spanBuilder.setAttribute("traceInfoResponse", traceInfoResponse.toString())
+            spanBuilder.setAttribute("traceCreationInfo", Json.encodeToString(TraceInfo.serializer(), traceInfo))
         }
         return spanBuilder.startSpan()
     }
@@ -105,22 +110,21 @@ class KotlinFlowTracer : MethodInterceptor {
         val methodName = invocation.method.name
         val span = createSpan(methodName, invocation)
 
-        invocation.arguments.forEachIndexed { index, argument ->
-            span.setAttribute("arg$index", argument.toString())
-        }
+        val argsJson = invocation.arguments
+            .mapIndexed { index, argument -> "\"arg$index\": $argument" }
+            .joinToString(prefix = "{", postfix = "}")
+        span.setAttribute("mlflow.spanInputs", argsJson)
 
         val scope: Scope = span.makeCurrent()
-        Instant.now().toEpochMilli()
         return try {
             val result = invocation.proceed()
-            span.setAttribute("result", result.toString())
+            span.setAttribute("mlflow.spanOutputs", result.toString())
             result
         } catch (exception: Throwable) {
             span.recordException(exception)
             span.setStatus(StatusCode.ERROR, exception.message ?: "Message not found")
             throw exception
         } finally {
-            Instant.now().toEpochMilli()
             span.end()
             scope.close()
         }
