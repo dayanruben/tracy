@@ -4,7 +4,6 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.sdk.trace.data.SpanData
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import org.example.ai.mlflow.Tag
 import org.example.ai.mlflow.fluent.RootSpanExporter
 
 fun List<SpanData>.toSpanArtifactsRequest(requestId: String) = this.map { spanData ->

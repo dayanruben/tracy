@@ -6,11 +6,11 @@ import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 import org.example.ai.mlflow.Tag
 
-fun List<SpanData>.toTracePatchTagRequest() =
+fun List<SpanData>.toUpdateTraceTagsRequest() =
     Tag(
         key = "mlflow.traceSpans",
         value = Json.encodeToString(this.map { spanData ->
-            TracePatchTagRequest(
+            UpdateTraceTagsRequest(
                 // TODO change to function name, not a name of the span
                 name = spanData.name,
                 type = "UNKNOWN",
@@ -20,7 +20,7 @@ fun List<SpanData>.toTracePatchTagRequest() =
     )
 
 @Serializable
-data class TracePatchTagRequest(
+data class UpdateTraceTagsRequest(
     @SerialName("name") val name: String,
     @SerialName("type") val type: String,
     @SerialName("inputs") val inputs: String?
