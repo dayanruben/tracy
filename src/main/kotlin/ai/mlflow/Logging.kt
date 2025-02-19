@@ -23,16 +23,6 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.time.Instant
 
-private const val ML_FLOW_API = "http://localhost:8080/api/2.0/mlflow"
-private const val ML_FLOW_ARTIFACTS_API = "http://localhost:8080/api/2.0/mlflow-artifacts"
-private const val USER_ID = "Anton.Bragin"
-
-private val client = HttpClient(CIO) {
-    install(ContentNegotiation) {
-        json()
-    }
-}
-
 @Serializable
 data class RunCreationData(
     @SerialName("experiment_id") val experimentId: String,
@@ -100,15 +90,15 @@ private fun getCallerInfo(): String? {
 
 suspend fun createRun(name: String, experimentId: String, source: String? = getCallerInfo()): Run {
     val tags = listOfNotNull(
-        Tag(key = "mlflow.user", value = USER_ID),
+        Tag(key = "mlflow.user", value = MlflowClients.USER_ID),
         source?.let { Tag(key = "mlflow.source.name", value = it) },
         Tag(key = "mlflow.source.type", value = "LOCAL")
     )
     val run = RunCreationData(
-        experimentId = experimentId, userId = USER_ID, runName = name, startTime = getCurrentTimestamp(), tags = tags
+        experimentId = experimentId, userId = MlflowClients.USER_ID, runName = name, startTime = getCurrentTimestamp(), tags = tags
     )
 
-    val result = client.post("${ML_FLOW_API}/runs/create") {
+    val result = MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/runs/create") {
         contentType(ContentType.Application.Json)
         setBody(run)
     }
@@ -118,7 +108,7 @@ suspend fun createRun(name: String, experimentId: String, source: String? = getC
 }
 
 suspend fun updateRun(runId: String, runStatus: RunStatus) {
-    client.post("${ML_FLOW_API}/runs/update") {
+    MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/runs/update") {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
@@ -129,7 +119,7 @@ suspend fun updateRun(runId: String, runStatus: RunStatus) {
 }
 
 suspend fun logModel(runId: String, modelJson: String) {
-    client.post("${ML_FLOW_API}/runs/log-model") {
+    MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/runs/log-model") {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
@@ -152,7 +142,7 @@ fun logModelData(artifactUri: String, modelData: ModelData) {
 }
 
 suspend fun createExperiment(name: String): String {
-    val response: HttpResponse = client.post("${ML_FLOW_API}/experiments/create") {
+    val response: HttpResponse = MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/experiments/create") {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
@@ -165,7 +155,7 @@ suspend fun createExperiment(name: String): String {
 }
 
 suspend fun getExperiment(experimentId: String): Experiment {
-    val response: HttpResponse = client.get("${ML_FLOW_API}/experiments/get") {
+    val response: HttpResponse = MlflowClients.client.get("${MlflowClients.ML_FLOW_API}/experiments/get") {
         contentType(ContentType.Application.Json)
         setBody(mapOf("experiment_id" to experimentId))
     }
@@ -179,14 +169,14 @@ suspend fun logBatch(runId: String, metrics: List<Metric>, params: List<Param> =
         runId = runId, metrics = metrics, params = params
     )
 
-    client.post("${ML_FLOW_API}/runs/log-batch") {
+    MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/runs/log-batch") {
         contentType(ContentType.Application.Json)
         setBody(runData)
     }
 }
 
 suspend fun createTrace(tracePostRequest: TracePostRequest): TraceInfo {
-    val postResponse = client.post("${ML_FLOW_API}/traces") {
+    val postResponse = MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/traces") {
         contentType(ContentType.Application.Json)
         setBody(tracePostRequest)
     }
@@ -209,7 +199,9 @@ suspend fun updateTrace(parentSpan: SpanData, trace: List<SpanData>) {
 
     uploadTraceArtifacts(
         traceResponse.experimentId, traceResponse.requestId, SpanArtifactsRequest(
-            spans = trace.toSpanArtifactsRequest(traceResponse.requestId), request = rootInputs, response = rootResult
+            spans = trace.toSpanArtifactsRequest(traceResponse.requestId),
+            request = rootInputs,
+            response = rootResult
         )
     )
 
@@ -225,7 +217,7 @@ suspend fun updateTrace(parentSpan: SpanData, trace: List<SpanData>) {
 }
 
 private suspend fun updateTraceTags(requestId: String, updateTagRequest: Tag) {
-    client.patch("${ML_FLOW_API}/traces/$requestId/tags") {
+    MlflowClients.client.patch("${MlflowClients.ML_FLOW_API}/traces/$requestId/tags") {
         contentType(ContentType.Application.Json)
         setBody(updateTagRequest)
     }
@@ -234,7 +226,7 @@ private suspend fun updateTraceTags(requestId: String, updateTagRequest: Tag) {
 private suspend fun uploadTraceArtifacts(
     experimentId: String, requestId: String, spanArtifactsRequest: SpanArtifactsRequest
 ) {
-    client.put("${ML_FLOW_ARTIFACTS_API}/artifacts/$experimentId/traces/$requestId/artifacts/traces.json") {
+    MlflowClients.client.put("${MlflowClients.ML_FLOW_ARTIFACTS_API}/artifacts/$experimentId/traces/$requestId/artifacts/traces.json") {
         contentType(ContentType.Application.Json)
         setBody(spanArtifactsRequest)
     }
@@ -244,14 +236,14 @@ private suspend fun patchTrace(
     requestId: String,
     tracePatchRequest: TracePatchRequest,
 ) {
-    client.patch("${ML_FLOW_API}/traces/$requestId") {
+    MlflowClients.client.patch("${MlflowClients.ML_FLOW_API}/traces/$requestId") {
         contentType(ContentType.Application.Json)
         setBody(tracePatchRequest)
     }
 }
 
 suspend fun setTag(runId: String?, key: String, value: String) {
-    client.post("${ML_FLOW_API}/runs/set-tag") {
+    MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/runs/set-tag") {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(
@@ -296,7 +288,7 @@ data class Experiment(
 
 
 suspend fun getRun(runId: String): Run {
-    val response: HttpResponse = client.get("${ML_FLOW_API}/runs/get") {
+    val response: HttpResponse = MlflowClients.client.get("${MlflowClients.ML_FLOW_API}/runs/get") {
         contentType(ContentType.Application.Json)
         setBody(mapOf("run_id" to runId))
     }
@@ -306,7 +298,7 @@ suspend fun getRun(runId: String): Run {
 }
 
 suspend fun getModel(runId: String) {
-    val response: HttpResponse = client.get("${ML_FLOW_API}/runs/get") {
+    val response: HttpResponse = MlflowClients.client.get("${MlflowClients.ML_FLOW_API}/runs/get") {
         contentType(ContentType.Application.Json)
         setBody(mapOf("run_id" to runId))
     }

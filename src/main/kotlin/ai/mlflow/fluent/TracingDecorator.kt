@@ -13,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.aopalliance.intercept.MethodInterceptor
 import org.aopalliance.intercept.MethodInvocation
+import org.example.ai.mlflow.MlflowClients
 import org.example.ai.mlflow.createTrace
 import org.example.ai.mlflow.dataclasses.TraceInfo
 import org.example.ai.mlflow.dataclasses.createTracePostRequest
@@ -30,15 +31,6 @@ annotation class KotlinFlowTrace
 
 class KotlinFlowTracer : MethodInterceptor {
     private val tracer: Tracer = GlobalOpenTelemetry.getTracer("org.example.ai.mlflow")
-    private val mlflowClient = MlflowClient("http://127.0.0.1:5000")
-
-    // TODO: Do not create new experiment here. Create mlflow service
-    private fun getCurrentExperimentId(): String = mlflowClient.createExperiment(generateRandomString(10))
-
-    private fun generateRandomString(length: Int = 10): String {
-        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-        return (1..length).map { chars.random() }.joinToString("")
-    }
 
     private fun createSpan(spanName: String, invocation: MethodInvocation): Span {
         val spanBuilder = tracer.spanBuilder(spanName)
@@ -52,7 +44,7 @@ class KotlinFlowTracer : MethodInterceptor {
             // TODO Get rid of run blocking
              runBlocking {
                 val tracePostRequest = createTracePostRequest(
-                    experimentId = getCurrentExperimentId(),
+                    experimentId = MlflowClients.getCurrentExperimentId(),
                     traceCreationPath = invocation.method.declaringClass.name,
                     traceName = spanName
                 )

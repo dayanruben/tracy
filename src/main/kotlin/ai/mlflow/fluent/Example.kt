@@ -5,6 +5,7 @@ import com.google.inject.Injector
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.example.ai.mlflow.MlflowClients.currentExperimentName
 
 open class MyClass {
 
@@ -61,11 +62,15 @@ fun main() {
     runBlocking {
         coroutineScope {
             setupTracing()
+            currentExperimentName = "My Experiment"
             val injector: Injector = Guice.createInjector(KotlinFlowTraceModule())
             val myClass = injector.getInstance(MyClass::class.java)
 
             launch {
                 myClass.computeResult(2, 4, 7)
+            }
+            launch {
+                myClass.computeResult(1, 2, 3)
             }
         }
     }
