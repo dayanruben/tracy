@@ -15,7 +15,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.example.ai.mlflow.dataclasses.*
-import org.example.ai.mlflow.fluent.KotlinFlowTracer
 import org.example.ai.model.ModelData
 import org.example.ai.model.createModelYaml
 import java.net.URI
@@ -23,8 +22,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.time.Instant
-import java.util.logging.LogManager
-import java.util.logging.Logger
 
 private const val ML_FLOW_API = "http://localhost:8080/api/2.0/mlflow"
 private const val ML_FLOW_ARTIFACTS_API = "http://localhost:8080/api/2.0/mlflow-artifacts"
@@ -35,10 +32,6 @@ private val client = HttpClient(CIO) {
         json()
     }
 }
-
-private val logger: Logger = LogManager.getLogManager().getLogger(Logger.GLOBAL_LOGGER_NAME) ?: Logger.getLogger(
-    KotlinFlowTracer::class.java.name
-)
 
 @Serializable
 data class RunCreationData(

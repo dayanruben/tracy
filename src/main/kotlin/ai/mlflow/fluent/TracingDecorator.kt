@@ -29,7 +29,6 @@ import kotlin.reflect.full.declaredFunctions
 annotation class KotlinFlowTrace
 
 class KotlinFlowTracer : MethodInterceptor {
-
     private val tracer: Tracer = GlobalOpenTelemetry.getTracer("org.example.ai.mlflow")
     private val mlflowClient = MlflowClient("http://127.0.0.1:5000")
 

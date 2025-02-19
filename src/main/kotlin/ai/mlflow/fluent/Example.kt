@@ -7,22 +7,53 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 open class MyClass {
+
     @KotlinFlowTrace
-    open fun someFunction(x: Int, y: Int, z: Int = 2): Int {
+    open fun computeResult(a: Int, b: Int, c: Int): Int {
         Thread.sleep(500)
-        return a(x) + b(y - z)
+        val result1 = performOperation1(a, b)
+        val result2 = performOperation2(b, c)
+        return combineResults(result1, result2)
     }
 
     @KotlinFlowTrace
-    open fun a(x: Int): Int {
+    open fun performOperation1(x: Int, y: Int): Int {
         Thread.sleep(300)
-        return x - 1
+        val intermediate1 = transformA(x)
+        val intermediate2 = transformB(y)
+        return intermediate1 + intermediate2
     }
 
     @KotlinFlowTrace
-    open fun b(x: Int): Int {
+    open fun performOperation2(x: Int, z: Int): Int {
+        Thread.sleep(300)
+        val intermediate1 = transformC(x, z)
+        val intermediate2 = transformB(z)
+        return intermediate1 * intermediate2
+    }
+
+    @KotlinFlowTrace
+    open fun transformA(a: Int): Int {
         Thread.sleep(200)
-        return x + 1
+        return a * 2
+    }
+
+    @KotlinFlowTrace
+    open fun transformB(b: Int): Int {
+        Thread.sleep(200)
+        return b + 5
+    }
+
+    @KotlinFlowTrace
+    open fun transformC(c: Int, d: Int): Int {
+        Thread.sleep(200)
+        return c - d
+    }
+
+    @KotlinFlowTrace
+    open fun combineResults(r1: Int, r2: Int): Int {
+        Thread.sleep(400)
+        return r1 + r2 + transformC(7, 8)
     }
 }
 
@@ -34,10 +65,7 @@ fun main() {
             val myClass = injector.getInstance(MyClass::class.java)
 
             launch {
-                myClass.someFunction(2, 4)
-            }
-            launch {
-                myClass.someFunction(3, 5)
+                myClass.computeResult(2, 4, 7)
             }
         }
     }

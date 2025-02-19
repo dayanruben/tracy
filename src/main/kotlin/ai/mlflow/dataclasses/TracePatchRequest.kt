@@ -3,7 +3,6 @@ package org.example.ai.mlflow.dataclasses
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.example.ai.mlflow.getCurrentTimestamp
-import java.time.Instant
 
 internal fun createTracePostRequest(
     requestId: String,
