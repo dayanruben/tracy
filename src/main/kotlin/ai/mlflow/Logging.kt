@@ -209,7 +209,8 @@ suspend fun updateTrace(parentSpan: SpanData, trace: List<SpanData>) {
         requestId = traceResponse.requestId,
         tracePatchRequest = createTracePostRequest(
             traceResponse.requestId,
-            parentSpan.endEpochNanos,
+            // Nanos to millis
+            parentSpan.endEpochNanos / 1_000_000,
             rootInputs,
             rootResult
         ),

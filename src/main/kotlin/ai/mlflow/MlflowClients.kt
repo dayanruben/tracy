@@ -34,7 +34,7 @@ internal object MlflowClients {
             currentExperimentId = if (currentExperiment.isPresent) {
                 currentExperiment.get().experimentId
             } else {
-                logger.info("Experiment with id $experimentName not found, creating a new one")
+                logger.info("Experiment with name $experimentName not found, creating a new one")
                 mlflowClient.createExperiment(experimentName)
             }
         } catch (e: Exception) {
