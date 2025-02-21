@@ -1,12 +1,8 @@
-package org.example.ai.mlflow.fluent
+package org.example.ai.mlflow.fluent.processor
 
-import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.trace.SpanId
-import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.common.CompletableResultCode
-import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.data.SpanData
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import kotlinx.coroutines.runBlocking
 import org.example.ai.mlflow.updateTrace
@@ -46,16 +42,4 @@ class RootSpanExporter : SpanExporter {
     override fun shutdown(): CompletableResultCode {
         return CompletableResultCode.ofSuccess()
     }
-}
-
-fun setupTracing() {
-    val tracerProvider = SdkTracerProvider.builder()
-        .addSpanProcessor(SimpleSpanProcessor.create(RootSpanExporter()))
-        .build()
-
-    GlobalOpenTelemetry.set(
-        OpenTelemetrySdk.builder()
-            .setTracerProvider(tracerProvider)
-            .build()
-    )
 }
