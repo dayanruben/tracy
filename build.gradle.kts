@@ -27,6 +27,8 @@ dependencies {
     implementation("io.opentelemetry:opentelemetry-api:$opentelemetry_version")
     implementation("io.opentelemetry:opentelemetry-sdk:$opentelemetry_version")
     implementation("io.opentelemetry:opentelemetry-exporter-logging:$opentelemetry_version")
+    implementation("net.bytebuddy:byte-buddy:1.14.5")
+    implementation("net.bytebuddy:byte-buddy-agent:1.14.5")
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.10")
     implementation("org.yaml:snakeyaml:2.3")
 
@@ -39,4 +41,10 @@ tasks.test {
 }
 kotlin {
     jvmToolchain(21)
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    compilerOptions {
+        freeCompilerArgs.add("-java-parameters")
+    }
 }

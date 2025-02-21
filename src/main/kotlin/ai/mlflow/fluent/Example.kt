@@ -1,16 +1,12 @@
 package org.example.ai.mlflow.fluent
 
-import com.google.inject.Guice
-import com.google.inject.Injector
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.example.ai.mlflow.MlflowClients
+import org.example.ai.mlflow.fluent.processor.TracingFlowProcessor
 
 open class MyClass {
-
     @KotlinFlowTrace(name = "Main Span", spanType = "func")
     open fun computeResult(a: Int, b: Int, c: Int): Int {
+        Thread.sleep(20)
         val result1 = performOperation1(a, b)
         val result2 = performOperation2(b, c)
         return combineResults(result1, result2)
@@ -18,6 +14,7 @@ open class MyClass {
 
     @KotlinFlowTrace
     open fun performOperation1(x: Int, y: Int): Int {
+        Thread.sleep(20)
         val intermediate1 = transformA(x)
         val intermediate2 = transformB(y)
         return intermediate1 + intermediate2
@@ -25,6 +22,7 @@ open class MyClass {
 
     @KotlinFlowTrace
     open fun performOperation2(x: Int, z: Int): Int {
+        Thread.sleep(20)
         val intermediate1 = transformC(x, z)
         val intermediate2 = transformB(z)
         return intermediate1 * intermediate2
@@ -32,38 +30,31 @@ open class MyClass {
 
     @KotlinFlowTrace(name="Multiply 2")
     open fun transformA(a: Int): Int {
+        Thread.sleep(20)
         return a * 2
     }
 
     @KotlinFlowTrace
     open fun transformB(b: Int): Int {
+        Thread.sleep(20)
         return b + 5
     }
 
     @KotlinFlowTrace
     open fun transformC(c: Int, d: Int): Int {
+        Thread.sleep(20)
         return c - d
     }
 
     @KotlinFlowTrace
     open fun combineResults(r1: Int, r2: Int): Int {
+        Thread.sleep(20)
         return r1 + r2 + transformC(7, 8)
     }
 }
 
 fun main() {
-    runBlocking {
-        coroutineScope {
-            setupTracing()
-            MlflowClients.setExperimentByName("My Experiment 3")
-            val injector: Injector = Guice.createInjector(KotlinFlowTraceModule())
-            val myClass = injector.getInstance(MyClass::class.java)
-
-            for (i in 1..10) {
-                launch {
-                    myClass.computeResult(i, i + 1, i + 2)
-                }
-            }
-        }
-    }
+    TracingFlowProcessor.setup()
+    MlflowClients.setExperimentByName("TestAll")
+    println(MyClass().computeResult(1, 2, 3))
 }

@@ -5,11 +5,10 @@ import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import net.bytebuddy.agent.ByteBuddyAgent
-import java.lang.instrument.Instrumentation
 
 object TracingFlowProcessor {
     fun setup() {
-//        setupTracing()
+        setupTracing()
         setupTracingFlowAgent()
     }
 
@@ -29,4 +28,3 @@ object TracingFlowProcessor {
         )
     }
 }
-
