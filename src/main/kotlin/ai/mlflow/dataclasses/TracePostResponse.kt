@@ -3,6 +3,10 @@ package org.example.ai.mlflow.dataclasses
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@Serializable
+data class TracesResponse(
+    @SerialName("traces") val traces: List<TraceInfo>
+)
 
 @Serializable
 data class TraceInfoResponse(

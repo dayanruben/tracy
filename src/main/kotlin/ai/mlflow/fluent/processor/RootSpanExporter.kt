@@ -6,9 +6,10 @@ import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import kotlinx.coroutines.runBlocking
 import org.example.ai.mlflow.updateTrace
+import java.util.concurrent.ConcurrentHashMap
 
 class RootSpanExporter : SpanExporter {
-    private val spanGroups = mutableMapOf<String, MutableList<SpanData>>()
+    private val spanGroups = ConcurrentHashMap<String, MutableList<SpanData>>()
 
     data class TraceInfo(
         val parent: SpanData,

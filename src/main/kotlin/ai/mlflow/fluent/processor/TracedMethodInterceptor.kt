@@ -16,6 +16,7 @@ import org.example.ai.mlflow.MlflowClients
 import org.example.ai.mlflow.createTrace
 import org.example.ai.mlflow.dataclasses.TraceInfo
 import org.example.ai.mlflow.dataclasses.createTracePostRequest
+import org.example.ai.mlflow.fluent.FluentSpanAttributes
 import org.example.ai.mlflow.fluent.KotlinFlowTrace
 import java.lang.reflect.Method
 import java.util.concurrent.Callable
@@ -34,12 +35,12 @@ object TracedMethodInterceptor {
                   @AllArguments args: Array<Any?>
     ): Any? {
         val span = createSpan(method)
-        span.setAttribute("mlflow.spanInputs", extractInputs(method, args))
+        span.setAttribute(FluentSpanAttributes.MLFLOW_SPAN_INPUTS.asAttributeKey(), extractInputs(method, args))
 
         val scope: Scope = span.makeCurrent()
         return try {
             val result = originalMethod.call()
-            span.setAttribute("mlflow.spanOutputs", result.toString())
+            span.setAttribute(FluentSpanAttributes.MLFLOW_SPAN_OUTPUTS.asAttributeKey(), result.toString())
             result
         } catch (exception: Throwable) {
             span.recordException(exception)
@@ -56,7 +57,7 @@ object TracedMethodInterceptor {
         val spanName = traceAnnotation.name.ifBlank { method.name }
 
         val spanBuilder = tracer.spanBuilder(spanName)
-        spanBuilder.setAttribute("mlflow.spanType", traceAnnotation.spanType)
+        spanBuilder.setAttribute(FluentSpanAttributes.MLFLOW_SPAN_TYPE.asAttributeKey(), traceAnnotation.spanType)
 
         val parentSpan = Span.current()
         if (parentSpan.spanContext.isValid) {
@@ -72,19 +73,17 @@ object TracedMethodInterceptor {
                     traceCreationPath = method.declaringClass.name,
                     traceName = spanName
                 )
-                val traceInfo = createTrace(tracePostRequest)
-                spanBuilder.setAttribute("traceCreationInfo", Json.encodeToString(TraceInfo.serializer(), traceInfo))
+                val jsonTraceInfo = Json.encodeToString(TraceInfo.serializer(), createTrace(tracePostRequest))
+                spanBuilder.setAttribute(FluentSpanAttributes.TRACE_CREATION_INFO.asAttributeKey(), jsonTraceInfo)
             }
         }
         return spanBuilder.startSpan()
     }
 
-    private fun extractInputs(method: Method, args: Array<Any?>): String {
-        val a = 3
-        return method.parameters.mapIndexed { index, parameter ->
+    private fun extractInputs(method: Method, args: Array<Any?>): String =
+        method.parameters.mapIndexed { index, parameter ->
             val paramName = parameter.name ?: "arg$index"
             val argumentValue = args.getOrNull(index)?.toString() ?: "null"
             "\"$paramName\": $argumentValue"
         }.joinToString(", ", prefix = "{", postfix = "}")
-    }
 }
