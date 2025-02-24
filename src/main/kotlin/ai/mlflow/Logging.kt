@@ -1,13 +1,8 @@
 package org.example.ai.mlflow
 
-import io.ktor.client.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.sdk.trace.data.SpanData
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -15,6 +10,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.example.ai.mlflow.dataclasses.*
+import org.example.ai.mlflow.fluent.FluentSpanAttributes
 import org.example.ai.model.ModelData
 import org.example.ai.model.createModelYaml
 import java.net.URI
@@ -154,14 +150,26 @@ suspend fun createExperiment(name: String): String {
     return Json.parseToJsonElement(response.bodyAsText()).jsonObject["experiment_id"]?.jsonPrimitive?.content!!
 }
 
-suspend fun getExperiment(experimentId: String): Experiment {
-    val response: HttpResponse = MlflowClients.client.get("${MlflowClients.ML_FLOW_API}/experiments/get") {
+suspend fun getTraces(experimentIds: String, maxResults: Int): List<TraceInfo> {
+    val response: HttpResponse = MlflowClients.client.get("${MlflowClients.ML_FLOW_API}/mlflow/traces") {
+        parameter("experiment_ids", experimentIds)
+        parameter("max_results", maxResults)
         contentType(ContentType.Application.Json)
-        setBody(mapOf("experiment_id" to experimentId))
     }
 
-    val experimentResponse = Json.decodeFromString<ExperimentResponse>(response.bodyAsText())
-    return experimentResponse.experiment
+    return Json.decodeFromString(response.bodyAsText())
+}
+
+suspend fun getTraces(experimentIds: List<String>, maxResults: Int = 10): TracesResponse {
+    val response: HttpResponse = MlflowClients.client.get("${MlflowClients.ML_FLOW_API}/traces") {
+        experimentIds.forEach { id ->
+            parameter("experiment_ids", id)
+        }
+        parameter("max_results", maxResults)
+        contentType(ContentType.Application.Json)
+    }
+
+    return Json.decodeFromString<TracesResponse>(response.bodyAsText())
 }
 
 suspend fun logBatch(runId: String, metrics: List<Metric>, params: List<Param> = emptyList()) {
@@ -184,14 +192,14 @@ suspend fun createTrace(tracePostRequest: TracePostRequest): TraceInfo {
 }
 
 suspend fun updateTrace(parentSpan: SpanData, trace: List<SpanData>) {
-    val traceCreationInfoJson = parentSpan.attributes[AttributeKey.stringKey("traceCreationInfo")]
+    val traceCreationInfoJson = parentSpan.attributes[FluentSpanAttributes.TRACE_CREATION_INFO.asAttributeKey()]
 
     val traceResponse: TraceInfo = traceCreationInfoJson?.let {
         Json.decodeFromString(TraceInfo.serializer(), it)
     } ?: throw IllegalStateException("Missing traceCreationInfo attribute in the parent span.")
 
-    val rootInputs = parentSpan.attributes[AttributeKey.stringKey("mlflow.spanInputs")]?.toString()
-    val rootResult = parentSpan.attributes[AttributeKey.stringKey("mlflow.spanOutputs")]?.toString()
+    val rootInputs = parentSpan.attributes[FluentSpanAttributes.MLFLOW_SPAN_INPUTS.asAttributeKey()]
+    val rootResult = parentSpan.attributes[FluentSpanAttributes.MLFLOW_SPAN_OUTPUTS.asAttributeKey()]
 
     updateTraceTags(
         requestId = traceResponse.requestId, updateTagRequest = trace.toUpdateTraceTagsRequest()
