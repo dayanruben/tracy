@@ -7,6 +7,7 @@ import io.opentelemetry.sdk.trace.data.SpanData
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.example.ai.mlflow.dataclasses.*
@@ -76,7 +77,11 @@ data class Inputs(
 )
 
 enum class RunStatus {
-    RUNNING, SCHEDULED, FINISHED, FAILED, KILLED
+    RUNNING,
+    SCHEDULED,
+    FINISHED,
+    FAILED,
+    KILLED
 }
 
 fun getCurrentTimestamp(): Long {
@@ -267,56 +272,6 @@ private suspend fun patchTrace(
         contentType(ContentType.Application.Json)
         setBody(tracePatchRequest)
     }
-}
-
-suspend fun trace(experimentId: String, runId: String, source: String? = null, tracingJson: JsonObject) {
-    val trace = TracePostRequest(
-        experimentId = experimentId,
-        requestMetadata = emptyList(),
-        tags = listOfNotNull(
-            source?.let { org.example.ai.mlflow.dataclasses.Tag("mlflow.source.name", it) },
-            source?.let { org.example.ai.mlflow.dataclasses.Tag("mlflow.source.type", "LOCAL") }
-        )
-    )
-
-    val postResponse = client.post("${ML_FLOW_API}/traces") {
-        contentType(ContentType.Application.Json)
-        setBody(trace)
-    }
-
-    val traceResponse = Json.decodeFromString<TraceInfoResponse>(postResponse.bodyAsText()).traceInfo
-
-    val patch = TracePatchRequest(
-        traceResponse.requestId,
-        status = "OK",
-        requestMetadata = listOf(
-            RequestMetadata(
-                "mlflow.sourceRun", runId
-            ),
-            RequestMetadata(
-                "mlflow.traceInputs", Json.encodeToString(tracingJson.jsonObject["request"])
-            ),
-            RequestMetadata(
-                "mlflow.traceOutputs", Json.encodeToString(tracingJson.jsonObject["response"])
-            ),
-        ),
-        tags = emptyList()
-    )
-
-    val patchResponse = client.patch("${ML_FLOW_API}/traces/${traceResponse.requestId}") {
-        contentType(ContentType.Application.Json)
-        setBody(patch)
-    }
-
-    // PATCH http://127.0.0.1:5000/api/2.0/mlflow/traces/3c30419648254c2baec65937d238957a/tags HTTP/1.1
-    val samplePatchTagRequest = """
-        {
-            "key": "mlflow.traceSpans",
-            "value": "[{\"name\": \"Completions\", \"type\": \"CHAT_MODEL\", \"inputs\": [\"messages\", \"model\"], \"outputs\": [\"id\", \"choices\", \"created\", \"model\", \"object\", \"service_tier\", \"system_fingerprint\", \"usage\"]}]"
-        }
-    """.trimIndent()
-
-    // TODO: client.patch("${ML_FLOW_API}/traces/$traceId"
 }
 
 suspend fun setTag(runId: String?, key: String, value: String) {
