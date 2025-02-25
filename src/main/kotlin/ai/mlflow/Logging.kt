@@ -34,6 +34,12 @@ data class Tag(
 )
 
 @Serializable
+data class RequestMetadata(
+    @SerialName("key") val key: String,
+    @SerialName("value") val value: String
+)
+
+@Serializable
 data class RunResponse(
     @SerialName("run") val run: Run
 )
@@ -191,38 +197,51 @@ suspend fun createTrace(tracePostRequest: TracePostRequest): TraceInfo {
     return Json.decodeFromString<TraceInfoResponse>(postResponse.bodyAsText()).traceInfo
 }
 
-suspend fun updateTrace(parentSpan: SpanData, trace: List<SpanData>) {
-    val traceCreationInfoJson = parentSpan.attributes[FluentSpanAttributes.TRACE_CREATION_INFO.asAttributeKey()]
+internal fun SpanData.getAttribute(spanAttributeKey: FluentSpanAttributes) =
+    this.attributes[spanAttributeKey.asAttributeKey()]
 
-    val traceResponse: TraceInfo = traceCreationInfoJson?.let {
-        Json.decodeFromString(TraceInfo.serializer(), it)
-    } ?: throw IllegalStateException("Missing traceCreationInfo attribute in the parent span.")
+suspend fun updateTrace(parentSpan: SpanData, traces: List<SpanData>) {
+    val traceCreationInfoJson = parentSpan.getAttribute(FluentSpanAttributes.TRACE_CREATION_INFO)
 
-    val rootInputs = parentSpan.attributes[FluentSpanAttributes.MLFLOW_SPAN_INPUTS.asAttributeKey()]
-    val rootResult = parentSpan.attributes[FluentSpanAttributes.MLFLOW_SPAN_OUTPUTS.asAttributeKey()]
+    val traceResponse: TraceInfo = traceCreationInfoJson?.let { Json.decodeFromString(TraceInfo.serializer(), it) }
+        ?: throw IllegalStateException("Missing traceCreationInfo attribute in the parent span.")
+
+    val rootInputs = parentSpan.getAttribute(FluentSpanAttributes.MLFLOW_SPAN_INPUTS)
+    val rootResult = parentSpan.getAttribute(FluentSpanAttributes.MLFLOW_SPAN_OUTPUTS)
 
     updateTraceTags(
-        requestId = traceResponse.requestId, updateTagRequest = trace.toUpdateTraceTagsRequest()
+        requestId = traceResponse.requestId,
+        updateTagRequest = traces.toUpdateTraceTagsRequest()
     )
 
     uploadTraceArtifacts(
-        traceResponse.experimentId, traceResponse.requestId, SpanArtifactsRequest(
-            spans = trace.toSpanArtifactsRequest(traceResponse.requestId),
+        traceResponse.experimentId,
+        traceResponse.requestId,
+        SpanArtifactsRequest(
+            spans = traces.toSpanArtifactsRequest(traceResponse.requestId),
             request = rootInputs,
             response = rootResult
         )
     )
 
-    patchTrace(
+    patchTrace(TracePatchRequest(
         requestId = traceResponse.requestId,
-        tracePatchRequest = createTracePostRequest(
-            traceResponse.requestId,
-            // Nanos to millis
-            parentSpan.endEpochNanos / 1_000_000,
-            rootInputs,
-            rootResult
+        status = "OK",
+        timestampMs = parentSpan.endEpochNanos / 1_000_000,
+        requestMetadata = listOf(
+            RequestMetadata("mlflow.trace_schema.version", "2"),
+            RequestMetadata("mlflow.traceInputs", rootInputs ?: "null"),
+            RequestMetadata("mlflow.traceOutputs", rootResult ?: "null")
         ),
-    )
+        tags = listOf(
+            Tag(
+                "mlflow.source.name",
+                parentSpan.getAttribute(FluentSpanAttributes.MLFLOW_SPAN_SOURCE_NAME) ?: "null"
+            ),
+            Tag("mlflow.source.type", "LOCAL"),
+            Tag("mlflow.traceName", parentSpan.name)
+        )
+    ))
 }
 
 private suspend fun updateTraceTags(requestId: String, updateTagRequest: Tag) {
@@ -242,10 +261,9 @@ private suspend fun uploadTraceArtifacts(
 }
 
 private suspend fun patchTrace(
-    requestId: String,
     tracePatchRequest: TracePatchRequest,
 ) {
-    MlflowClients.client.patch("${MlflowClients.ML_FLOW_API}/traces/$requestId") {
+    MlflowClients.client.patch("${MlflowClients.ML_FLOW_API}/traces/${tracePatchRequest.requestId}") {
         contentType(ContentType.Application.Json)
         setBody(tracePatchRequest)
     }

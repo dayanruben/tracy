@@ -57,7 +57,10 @@ object TracedMethodInterceptor {
         val spanName = traceAnnotation.name.ifBlank { method.name }
 
         val spanBuilder = tracer.spanBuilder(spanName)
+
+        spanBuilder.setAttribute(FluentSpanAttributes.MLFLOW_SPAN_SOURCE_NAME.asAttributeKey(), method.declaringClass.name)
         spanBuilder.setAttribute(FluentSpanAttributes.MLFLOW_SPAN_TYPE.asAttributeKey(), traceAnnotation.spanType)
+        spanBuilder.setAttribute(FluentSpanAttributes.MLFLOW_SPAN_FUNCTION_NAME.asAttributeKey(), method.name)
 
         val parentSpan = Span.current()
         if (parentSpan.spanContext.isValid) {
