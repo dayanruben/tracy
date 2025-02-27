@@ -9,16 +9,16 @@ import java.time.Instant
 
 internal fun createTracePostRequest(
     experimentId: String,
-    runId: String,
+    runId: String?,
     startTime: Long = Instant.now().toEpochMilli(),
     traceCreationPath: String,
     traceName: String
 )  = TracePostRequest(
         experimentId = experimentId,
         timestampMs = startTime,
-        requestMetadata = listOf(
+        requestMetadata = listOfNotNull(
             RequestMetadata(key = "mlflow.trace_schema.version", value = "2"),
-            RequestMetadata(key = "mlflow.sourceRun", value = runId)
+            runId?.let { RequestMetadata(key = "mlflow.sourceRun", value = it) }
         ),
         tags = listOf(
             Tag("mlflow.source.name", traceCreationPath),

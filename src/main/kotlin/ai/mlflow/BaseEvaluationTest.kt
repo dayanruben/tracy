@@ -42,7 +42,7 @@ abstract class BaseEvaluationTest<I, O, R>(
         println("🔄 Setting up before all tests")
 
         TracingFlowProcessor.setup()
-        MlflowClients.setExperimentByName(experimentName)
+        KotlinMlflowClient.setExperimentByName(experimentName)
 
         if (tags.isNotEmpty()) assertEquals(tags.size, numberOfRuns, "The number of tags must match the number of runs")
 
@@ -70,7 +70,7 @@ abstract class BaseEvaluationTest<I, O, R>(
                     experimentId
                 )?.runId.toString()
 
-                MlflowClients.currentRunId = runId
+                KotlinMlflowClient.currentRunId = runId
 
                     modelData?.runId = runId
                 setupMlflow(modelData, runId)
