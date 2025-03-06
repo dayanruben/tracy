@@ -1,5 +1,6 @@
 package org.example.ai.mlflow
 
+import io.ktor.client.HttpClient
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -148,8 +149,8 @@ suspend fun updateRun(runId: String, runStatus: RunStatus) {
     }
 }
 
-suspend fun logModel(runId: String, modelJson: String) {
-    MlflowClients.client.post("${MlflowClients.ML_FLOW_API}/runs/log-model") {
+suspend fun logModel(runId: String, modelJson: String, mlFlowUrl: String = MlflowClients.ML_FLOW_API) {
+    MlflowClients.client.post("${mlFlowUrl}/runs/log-model") {
         contentType(ContentType.Application.Json)
         setBody(
             mapOf(

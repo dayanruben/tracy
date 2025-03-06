@@ -26,16 +26,17 @@ internal object MlflowClients {
         }
     }
 
-    val mlflowClient = MlflowClient(ML_FLOW_URL)
+    val defaultMLFlowClient = MlflowClient(ML_FLOW_URL)
+
 
     fun setExperimentByName(experimentName: String) {
         try {
-            val currentExperiment = mlflowClient.getExperimentByName(experimentName)
+            val currentExperiment = defaultMLFlowClient.getExperimentByName(experimentName)
             currentExperimentId = if (currentExperiment.isPresent) {
                 currentExperiment.get().experimentId
             } else {
                 logger.info("Experiment with name $experimentName not found, creating a new one")
-                mlflowClient.createExperiment(experimentName)
+                defaultMLFlowClient.createExperiment(experimentName)
             }
         } catch (e: Exception) {
             logger.warning("Unexpected error occurred when setting experiment by name: ${e.message}")

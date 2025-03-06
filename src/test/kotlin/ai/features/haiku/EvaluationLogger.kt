@@ -27,7 +27,7 @@ import java.util.Optional
  * Part of the library. Logs test as evaluation runs to the tracking server.
  */
 class EvaluationLogger(val model: HaikuGenerator) : TestWatcher, BeforeAllCallback, AfterAllCallback {
-    private val EXPERIMENT_ID = "259381197825368132"
+    private val EXPERIMENT_ID = "0"
     // TODO: should be passed via ExtensionContext.Store
     private var runId: String? = null
 

@@ -52,7 +52,7 @@ class TestFluentTracing {
 
     @AfterEach
     fun cleaning() {
-        MlflowClients.mlflowClient.deleteExperiment(MlflowClients.currentExperimentId)
+        MlflowClients.defaultMLFlowClient.deleteExperiment(MlflowClients.currentExperimentId)
     }
 
     @Test
