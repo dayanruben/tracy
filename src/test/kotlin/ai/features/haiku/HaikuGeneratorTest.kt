@@ -1,14 +1,18 @@
 package ai.features.haiku
 
+import com.openai.models.ChatCompletionCreateParams
+import com.openai.models.ChatModel
 import kotlinx.coroutines.runBlocking
 import org.example.ai.AIModel
 import org.example.ai.createAIClient
+import org.example.ai.createOpenAIClient
 import org.example.ai.features.haiku.HaikuGenerator
 import org.example.ai.mlflow.BaseEvaluationTest
 import org.example.ai.mlflow.dataclasses.EvaluationCriteria
 import org.example.ai.mlflow.dataclasses.RunTag
 import org.example.ai.mlflow.dataclasses.TestCase
 import org.example.ai.mlflow.fluent.KotlinFlowTrace
+import kotlin.jvm.optionals.getOrElse
 
 
 class HaikuGeneratorTest :
@@ -76,9 +80,16 @@ You are an AI poetry critic. Your job is to evaluate the overall quality of a Ha
 Evaluate this Haiku:
 """ + output
 
-        val client = createAIClient()
-        val result = runBlocking { client.chatRequest(AIModel.GPT_4O_MINI, prompt, temperature = 1.0).toDouble() }
-        return result
+        val client = createOpenAIClient()
+
+        val params = ChatCompletionCreateParams.Companion.builder()
+            .addUserMessage(prompt)
+            .model(ChatModel.Companion.GPT_4O_MINI)
+            .temperature(1.0)
+            .build()
+
+        val result = client.chat().completions().create(params).choices().first()
+        return result.message().content().getOrElse { "0" }.toDouble()
     }
 }
 

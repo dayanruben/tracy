@@ -1,8 +1,11 @@
 package org.example.ai.features.haiku
 
+import com.openai.models.ChatCompletionCreateParams
+import com.openai.models.ChatModel
 import org.example.ai.AIModel
-import org.example.ai.createAIClient
+import org.example.ai.createOpenAIClient
 import org.example.ai.mlflow.dataclasses.Generator
+import kotlin.jvm.optionals.getOrElse
 
 class HaikuGenerator(override val model: AIModel) : Generator<String, String> {
     override val prompt = """
@@ -28,7 +31,14 @@ class HaikuGenerator(override val model: AIModel) : Generator<String, String> {
     Generate a haiku using the [input] provided.
      */
     override suspend fun generate(input: String): String {
-        val client = createAIClient()
-        return client.chatRequest(model, String.format(prompt, input), temperature = temperature)
+        val client = createOpenAIClient()
+
+        val params = ChatCompletionCreateParams.Companion.builder()
+            .addUserMessage(prompt)
+            .model(ChatModel.Companion.GPT_4O_MINI)
+            .temperature(temperature)
+            .build()
+
+        return client.chat().completions().create(params).choices().first().message().content().getOrElse { "" }
     }
 }
