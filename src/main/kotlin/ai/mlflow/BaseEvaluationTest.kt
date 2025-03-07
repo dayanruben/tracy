@@ -42,7 +42,6 @@ abstract class BaseEvaluationTest<I, O, R>(
         println("🔄 Setting up before all tests")
 
         TracingFlowProcessor.setup()
-        KotlinMlflowClient.setExperimentByName(experimentName)
 
         if (tags.isNotEmpty()) assertEquals(tags.size, numberOfRuns, "The number of tags must match the number of runs")
 
@@ -54,6 +53,7 @@ abstract class BaseEvaluationTest<I, O, R>(
             ?: createExperiment(mlFlowClient, experimentName, artifactLocation!!)
                     ?: throw IllegalStateException("Failed to create or retrieve experiment '$experimentName' at $baseUrl")
 
+        KotlinMlflowClient.currentExperimentId = experimentId
         val baselineModelFile = getModelInfoFromFirstRun()
 
         modelData = createModelData()

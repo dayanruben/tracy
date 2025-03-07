@@ -20,9 +20,8 @@ internal object KotlinMlflowClient : MlflowClient(ML_FLOW_URL) {
     const val ML_FLOW_ARTIFACTS_API = "$ML_FLOW_URL/api/2.0/mlflow-artifacts"
     const val USER_ID = "Anton.Bragin"
 
+    // TODO: Remove state storage here ASAP!
     internal var currentExperimentId: String = "0"
-        private set
-
     internal var currentRunId: String? = null
 
     val client = HttpClient(CIO) {
