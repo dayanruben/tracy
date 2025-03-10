@@ -34,7 +34,7 @@ class HaikuGenerator(override val model: AIModel) : Generator<String, String> {
         val client = createOpenAIClient()
 
         val params = ChatCompletionCreateParams.Companion.builder()
-            .addUserMessage(prompt)
+            .addUserMessage(prompt.format(input))
             .model(ChatModel.Companion.GPT_4O_MINI)
             .temperature(temperature)
             .build()

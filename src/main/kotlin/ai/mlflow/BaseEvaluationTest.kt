@@ -12,7 +12,6 @@ import org.example.ai.mlflow.fluent.processor.TracingFlowProcessor
 import org.example.ai.model.*
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.mlflow.tracking.MlflowClient
 import java.io.File
 import java.util.stream.Stream
 
@@ -28,10 +27,7 @@ abstract class BaseEvaluationTest<I, O, R>(
     private val numberOfRuns: Int = 1,
     private val tags: List<RunTag> = listOf(),
     private val baseUrl: String = "http://localhost:5001",
-    private var artifactLocation: String? = null
 ) {
-    private lateinit var mlFlowClient: MlflowClient
-
     private lateinit var experimentId: String
     private var baselineText: String? = null
     private var modelData: ModelData? = null
@@ -45,12 +41,8 @@ abstract class BaseEvaluationTest<I, O, R>(
 
         if (tags.isNotEmpty()) assertEquals(tags.size, numberOfRuns, "The number of tags must match the number of runs")
 
-        mlFlowClient = MlflowClient(baseUrl)
-
-        if (artifactLocation == null) artifactLocation = getMLflowRunsDir()
-
-        experimentId = getExperimentByName(mlFlowClient, experimentName)?.experimentId
-            ?: createExperiment(mlFlowClient, experimentName)
+        experimentId = getExperimentByName(KotlinMlflowClient, experimentName)?.experimentId
+            ?: createExperiment(KotlinMlflowClient, experimentName)
                     ?: throw IllegalStateException("Failed to create or retrieve experiment '$experimentName' at $baseUrl")
 
         KotlinMlflowClient.currentExperimentId = experimentId
@@ -65,7 +57,7 @@ abstract class BaseEvaluationTest<I, O, R>(
         (1..numberOfRuns).map { runNum ->
             runBlocking {
                 val runId = createRun(
-                    mlFlowClient,
+                    KotlinMlflowClient,
                     runNameBase + if (numberOfRuns > 1) runNum else "",
                     experimentId
                 )?.runId.toString()
@@ -81,11 +73,11 @@ abstract class BaseEvaluationTest<I, O, R>(
     }
 
     private fun getModelInfoFromFirstRun(): File? {
-        val allRuns = mlFlowClient.listRunInfos(experimentId)
+        val allRuns = KotlinMlflowClient.listRunInfos(experimentId)
         val firstRun = allRuns.lastOrNull() ?: return null
 
         return try {
-            mlFlowClient.downloadArtifacts(firstRun.runId, "model/MLmodel")
+            KotlinMlflowClient.downloadArtifacts(firstRun.runId, "model/MLmodel")
         } catch (e: Exception) {
             println("Warning: Failed to download model info from the first run")
             null
@@ -214,20 +206,27 @@ abstract class BaseEvaluationTest<I, O, R>(
 
 
     @TestFactory
-    @KotlinFlowTrace(name = "Evaluation")
-    fun Runs(): Stream<DynamicContainer> =
-        runResults.mapIndexed { runNum, runResult ->
-            DynamicContainer.dynamicContainer(
-                "Run ${if (runResults.size > 1) runNum + 1 else ""}", testFunctions().map { testFunction ->
-                    DynamicContainer.dynamicContainer(testFunction.name, testCases().map { testCase ->
-                        val output = runBlocking { model().generate(testCase.input) }
+    fun Runs(): Stream<DynamicContainer> = runResults.mapIndexed { runNum, runResult ->
+        val computedOutputs = testCases().associateWith { testCase ->
+            runBlocking { model().generate(testCase.input) }
+        }
+
+        DynamicContainer.dynamicContainer(
+            "Run ${if (runResults.size > 1) runNum + 1 else ""}",
+            testFunctions().map { testFunction ->
+                DynamicContainer.dynamicContainer(
+                    testFunction.name,
+                    testCases().map { testCase ->
+                        val output = computedOutputs[testCase]!!
 
                         DynamicTest.dynamicTest(testCase.input.toString()) {
                             executeSingleTest(testFunction, testCase, runNum, runResult.runId, output)
                         }
-                    })
-                })
-        }.stream()
+                    }
+                )
+            }
+        )
+    }.stream()
 
     @KotlinFlowTrace(name = "Test")
     private fun executeSingleTest(
@@ -280,20 +279,16 @@ abstract class BaseEvaluationTest<I, O, R>(
                 val avgScore = results.map { (it as Number).toDouble() }.average()
 
                 testResults.forEach { test ->
-                    logMetric(mlFlowClient, runId, test.testName, test.result as Double)
+                    logMetric(KotlinMlflowClient, runId, test.testName, test.result as Double)
                 }
 
-                logMetric(mlFlowClient, runId, "Overall_Average", avgScore)
+                logMetric(KotlinMlflowClient, runId, "Overall_Average", avgScore)
             } else {
                 println("Warning: Results are not numeric, cannot compute average.")
             }
 
             println("📈 Results logged to MLFlow for Run ID: $runId")
         }
-    }
-
-    open fun getMLflowRunsDir(): String {
-        return getDefaultArtifactLocation(mlFlowClient)
     }
 
     abstract fun testCases(): List<TestCase<I>>

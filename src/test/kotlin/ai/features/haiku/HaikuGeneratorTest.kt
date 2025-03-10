@@ -41,8 +41,6 @@ class HaikuGeneratorTest :
             Creativity
         )
     }
-
-    override fun getMLflowRunsDir() = "/Users/Anton.Bragin/PycharmProjects/litellm-test/mlruns"
 }
 
 /**
