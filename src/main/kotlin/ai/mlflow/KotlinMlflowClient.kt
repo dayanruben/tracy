@@ -15,7 +15,7 @@ internal object KotlinMlflowClient : MlflowClient(ML_FLOW_URL) {
     private val logger: Logger = LogManager.getLogManager().getLogger(Logger.GLOBAL_LOGGER_NAME)
         ?: Logger.getLogger(KotlinMlflowClient::class.java.name)
 
-    private const val ML_FLOW_URL = "http://localhost:5001"
+    internal const val ML_FLOW_URL = "http://localhost:5001"
     const val ML_FLOW_API = "$ML_FLOW_URL/api/2.0/mlflow"
     const val ML_FLOW_ARTIFACTS_API = "$ML_FLOW_URL/api/2.0/mlflow-artifacts"
     const val USER_ID = "Anton.Bragin"

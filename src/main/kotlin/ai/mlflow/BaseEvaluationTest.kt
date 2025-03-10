@@ -26,7 +26,6 @@ abstract class BaseEvaluationTest<I, O, R>(
     private val runName: String? = null,
     private val numberOfRuns: Int = 1,
     private val tags: List<RunTag> = listOf(),
-    private val baseUrl: String = "http://localhost:5001",
 ) {
     private lateinit var experimentId: String
     private var baselineText: String? = null
@@ -43,7 +42,7 @@ abstract class BaseEvaluationTest<I, O, R>(
 
         experimentId = getExperimentByName(KotlinMlflowClient, experimentName)?.experimentId
             ?: createExperiment(KotlinMlflowClient, experimentName)
-                    ?: throw IllegalStateException("Failed to create or retrieve experiment '$experimentName' at $baseUrl")
+                    ?: throw IllegalStateException("Failed to create or retrieve experiment '$experimentName' at ${KotlinMlflowClient.ML_FLOW_URL}")
 
         KotlinMlflowClient.currentExperimentId = experimentId
         val baselineModelFile = getModelInfoFromFirstRun()
@@ -268,7 +267,7 @@ abstract class BaseEvaluationTest<I, O, R>(
 
     private fun logTest(message: String, runId: String) {
         println(message)
-        println("🔗 View results at ${baseUrl}/#/experiments/$experimentId/runs/$runId")
+        println("🔗 View results at ${KotlinMlflowClient.ML_FLOW_URL}/#/experiments/$experimentId/runs/$runId")
     }
 
     private fun logAveragePlot(runId: String, testResults: List<TestInfo<I, O, R>>) {
