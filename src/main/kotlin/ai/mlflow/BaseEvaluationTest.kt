@@ -1,5 +1,9 @@
 package org.example.ai.mlflow
 
+import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.context.Scope
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -7,7 +11,7 @@ import org.example.ai.AIModel
 import org.example.ai.createAIClient
 import org.example.ai.mlflow.dataclasses.*
 import org.example.ai.mlflow.dataclasses.TestInfo
-import org.example.ai.mlflow.fluent.KotlinFlowTrace
+import org.example.ai.mlflow.fluent.FluentSpanAttributes
 import org.example.ai.mlflow.fluent.processor.TracingFlowProcessor
 import org.example.ai.model.*
 import org.junit.jupiter.api.*
@@ -206,20 +210,24 @@ abstract class BaseEvaluationTest<I, O, R>(
 
     @TestFactory
     fun Runs(): Stream<DynamicContainer> = runResults.mapIndexed { runNum, runResult ->
-        val computedOutputs = testCases().associateWith { testCase ->
-            runBlocking { model().generate(testCase.input) }
-        }
+        val testFunctions = testFunctions()
+        val tracer: Tracer = GlobalOpenTelemetry.getTracer("ai.mlflow.evaluation.tracing")
 
         DynamicContainer.dynamicContainer(
             "Run ${if (runResults.size > 1) runNum + 1 else ""}",
-            testFunctions().map { testFunction ->
+            testCases().mapIndexed { dataPointIndex, testCase ->
+                val (dataPointSpan, dataPointScope) =
+                    createDataPointSpan(dataPointIndex, tracer, runResult.runId, testCase)
+                val output = runBlocking { model().generate(testCase.input) }
                 DynamicContainer.dynamicContainer(
-                    testFunction.name,
-                    testCases().map { testCase ->
-                        val output = computedOutputs[testCase]!!
-
-                        DynamicTest.dynamicTest(testCase.input.toString()) {
-                            executeSingleTest(testFunction, testCase, runNum, runResult.runId, output)
+                    testCase.input.toString(),
+                    testFunctions.mapIndexed { index, testFunction ->
+                        DynamicTest.dynamicTest(testFunction.name) {
+                            executeSingleTest(dataPointSpan, testFunction, testCase, runNum, runResult.runId, output)
+                            if (index == testFunctions.lastIndex) {
+                                dataPointSpan.end()
+                                dataPointScope.close()
+                            }
                         }
                     }
                 )
@@ -227,8 +235,34 @@ abstract class BaseEvaluationTest<I, O, R>(
         )
     }.stream()
 
-    @KotlinFlowTrace(name = "Test")
+    private fun createDataPointSpan(dataPointIndex: Int,
+                                     tracer: Tracer,
+                                     runId: String,
+                                     testCase: TestCase<I>): Pair<Span, Scope> {
+        val tracedRunName = "Data Point ${dataPointIndex + 1}"
+        val dataPointSpan = tracer.spanBuilder(tracedRunName).setNoParent().also {
+            runBlocking {
+                val tracePostRequest = createTracePostRequest(
+                    experimentId = experimentId,
+                    runId = runId,
+                    traceCreationPath = "No path for root test",
+                    traceName = tracedRunName
+                )
+
+                val jsonTraceInfo = Json.encodeToString(TraceInfo.serializer(), createTrace(tracePostRequest))
+                it.setAttribute(FluentSpanAttributes.TRACE_CREATION_INFO.asAttributeKey(), jsonTraceInfo)
+                it.setAttribute(
+                    FluentSpanAttributes.MLFLOW_SPAN_INPUTS.asAttributeKey(),
+                    "{\"Data Point\": \"${testCase.input}\"}"
+                )
+            }
+        }.startSpan()
+        val dataPointScope = dataPointSpan.makeCurrent()
+        return dataPointSpan to dataPointScope
+    }
+
     private fun executeSingleTest(
+        span: Span,
         testFunction: EvaluationCriteria<O, R>,
         testCase: TestCase<I>,
         runNum: Int,
@@ -239,6 +273,8 @@ abstract class BaseEvaluationTest<I, O, R>(
         var message = "⚠️ Run details are missing or unavailable."
 
         try {
+            span.makeCurrent()
+
             result = testFunction.evaluate(output)
 
             message = if (testFunction.resultExpected != null) {
