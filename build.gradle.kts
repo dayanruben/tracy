@@ -8,7 +8,6 @@ version = "1.0-SNAPSHOT"
 val ktor_version: String by project
 val opentelemetry_version: String by project
 val logback_version: String by project
-val bytebuddy_version: String by project
 val mlflow_client_version: String by project
 val testcontainers_version: String by project
 
