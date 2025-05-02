@@ -37,8 +37,8 @@ object PublishToSpace : BuildType({
     name = "Publish to space"
 
     params {
-        param("env.SPACE_PASSWORD", "credentialsJSON:20e578d0-33ec-4600-831b-c27bc27b4be1")
-        param("env.SPACE_USERNAME", "Viacheslav.Suvorov")
+        password("env.SPACE_PASSWORD", "credentialsJSON:cac278db-1591-4ad6-9fc4-4ecef5f5e853")
+        password("env.SPACE_USERNAME", "credentialsJSON:c038a60b-6747-4938-b725-4cfb201890a5")
     }
 
     vcs {
@@ -46,6 +46,11 @@ object PublishToSpace : BuildType({
     }
 
     steps {
+        gradle {
+            name = "Show credentials"
+            id = "Show_creds"
+            tasks = ":showCreds"
+        }
         gradle {
             name = "Publish space"
             id = "Publish_space"
