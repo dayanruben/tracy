@@ -1,16 +1,15 @@
 package ai.dev.kit.providers.mlflow.tracing
 
-import ai.dev.kit.tracing.fluent.processor.TracingFlowProcessor
 import ai.dev.kit.providers.mlflow.KotlinMlflowClient
-import ai.dev.kit.providers.mlflow.MlflowContainerTests
 import ai.dev.kit.providers.mlflow.fluent.setupMlflowTracing
+import ai.dev.kit.tracing.fluent.processor.TracingFlowProcessor
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
-import kotlin.random.Random
 
-interface MlflowTracingTests: MlflowContainerTests {
+interface MlflowTracingTests
+// See JBAI-14569, this doesn't work. To run these tests, spin up the MLFlow server manually.
+// : MlflowContainerTests
+{
     companion object {
         @BeforeAll
         @JvmStatic
@@ -23,20 +22,25 @@ interface MlflowTracingTests: MlflowContainerTests {
         fun removeTracing() {
             TracingFlowProcessor.teardownTracing()
         }
-    }
 
-    @BeforeEach
-    fun setup() {
-        KotlinMlflowClient.setExperimentByName(generateRandomString())
-    }
+        @AfterAll
+        @JvmStatic
+        fun cleanExperimentIds() {
+            experimentIds.forEach {
+                KotlinMlflowClient.deleteExperiment(it)
+            }
+        }
 
-    @AfterEach
-    fun cleaning() {
-        KotlinMlflowClient.deleteExperiment(KotlinMlflowClient.currentExperimentId)
+        private val experimentIds = mutableSetOf<String>()
+        fun getExperimentId(): String {
+            val id = KotlinMlflowClient.createExperiment(generateRandomString())
+            experimentIds.add(id)
+            return id
+        }
     }
+}
 
-    private fun generateRandomString(length: Int = 10): String {
-        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-        return (1..length).map { chars[Random.nextInt(chars.length)] }.joinToString("")
-    }
+private fun generateRandomString(length: Int = 10): String {
+    val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    return (1..length).map { chars.random() }.joinToString("")
 }

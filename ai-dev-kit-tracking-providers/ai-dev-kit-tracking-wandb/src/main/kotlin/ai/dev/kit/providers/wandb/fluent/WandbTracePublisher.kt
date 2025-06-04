@@ -1,13 +1,13 @@
 package ai.dev.kit.providers.wandb.fluent
 
-import ai.dev.kit.tracing.fluent.FluentSpanAttributes
-import ai.dev.kit.tracing.fluent.getAttribute
-import ai.dev.kit.tracing.fluent.processor.TracePublisher
 import ai.dev.kit.providers.wandb.KotlinWandbClient
 import ai.dev.kit.providers.wandb.KotlinWandbClient.USER_ID
 import ai.dev.kit.providers.wandb.KotlinWandbClient.WANDB_API
 import ai.dev.kit.providers.wandb.KotlinWandbClient.WANDB_USER_API_KEY
-import ai.dev.kit.providers.wandb.KotlinWandbClient.currentExperimentId
+import ai.dev.kit.tracing.fluent.FluentSpanAttributes
+import ai.dev.kit.tracing.fluent.TracingSessionProvider
+import ai.dev.kit.tracing.fluent.getAttribute
+import ai.dev.kit.tracing.fluent.processor.TracePublisher
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.opentelemetry.api.common.AttributeKey
@@ -15,8 +15,11 @@ import io.opentelemetry.api.trace.SpanId
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.data.SpanData
 import kotlinx.serialization.json.*
+import mu.KotlinLogging
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+
+private val logger = KotlinLogging.logger {}
 
 class WandbTracePublisher : TracePublisher {
     private fun buildEndCall(
@@ -24,7 +27,7 @@ class WandbTracePublisher : TracePublisher {
         endedAtMillis: Long,
         outputsString: String,
     ): JsonObject {
-        val projectId = "$USER_ID/$currentExperimentId"
+        val projectId = "$USER_ID/${currentProjectNameOrDefault()}"
 
         val instantEnd = Instant.ofEpochMilli(endedAtMillis)
         val endedAt = DateTimeFormatter.ISO_INSTANT.format(instantEnd)
@@ -105,7 +108,7 @@ class WandbTracePublisher : TracePublisher {
             startedAtMillis: Long,
             parentSpanId: JsonElement,
         ): JsonObject {
-            val projectId = "$USER_ID/$currentExperimentId"
+            val projectId = "$USER_ID/${currentProjectNameOrDefault()}"
 
             val inputs = parseLenientJson(spanInputs)
 
@@ -156,6 +159,17 @@ class WandbTracePublisher : TracePublisher {
             }
 
             return payload
+        }
+
+        /**
+         * If [currentProjectId] is not set, log to some random project.
+         */
+        private fun currentProjectNameOrDefault() = TracingSessionProvider.currentProjectId ?: {
+            val defaultProjectName = "project-with-no-set-name"
+            logger.info {
+                "Publishing trace to W&B to the default project: $defaultProjectName. " +
+                        "To specify another project, use `withProjectId`"
+            }
         }
     }
 
