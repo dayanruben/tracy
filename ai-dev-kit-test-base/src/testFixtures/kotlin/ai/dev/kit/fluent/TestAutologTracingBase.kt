@@ -1,9 +1,11 @@
 package ai.dev.kit.fluent
 
-import ai.dev.kit.createOpenAIClient
+import ai.dev.kit.instrument
 import ai.dev.kit.tracing.fluent.dataclasses.TracesResponse
 import ai.dev.kit.tracing.fluent.processor.TracingFlowProcessor
 import ai.dev.kit.tracing.fluent.withProjectId
+import com.openai.client.OpenAIClient
+import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
 import com.openai.models.chat.completions.ChatCompletionCreateParams
 import kotlinx.coroutines.test.runTest
@@ -12,9 +14,12 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Test
+import java.time.Duration
 import kotlin.reflect.KSuspendFunction1
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+
+const val LITELLM_URL = "https://litellm.labs.jb.gg"
 
 open class TestAutologTracingBase(
     val getTraces: KSuspendFunction1<String, TracesResponse>,
@@ -24,7 +29,8 @@ open class TestAutologTracingBase(
     fun testOpenAIAutoTracing() = runTest {
         val experimentId = getExperimentId()
         withProjectId(experimentId) {
-            val client = createOpenAIClient()
+            // TODO: the test passes even if the instrumentation is off
+            val client = instrument(createLiteLLMClient())
             val params = ChatCompletionCreateParams.Companion.builder()
                 .addUserMessage("Generate polite greeting and introduce yourself")
                 .model(ChatModel.Companion.GPT_4O_MINI).temperature(1.1).build()
@@ -45,5 +51,13 @@ open class TestAutologTracingBase(
             "{\"messages\":[{\"content\":\"Generate polite greeting and introduce yourself\",\"role\":\"user\"}],\"model\":\"gpt-4o-mini\",\"temperature\":1.1}",
             (jsonInput["inputs"] as? JsonPrimitive)?.content
         )
+    }
+
+    private fun createLiteLLMClient(): OpenAIClient {
+        return OpenAIOkHttpClient.builder()
+            .baseUrl(LITELLM_URL)
+            .apiKey(System.getenv("LITELLM_API_KEY") ?: error("LITELLM_API_KEY environment variable is not set"))
+            .timeout(Duration.ofSeconds(60))
+            .build()
     }
 }

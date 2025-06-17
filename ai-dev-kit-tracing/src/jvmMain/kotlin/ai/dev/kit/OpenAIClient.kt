@@ -12,17 +12,22 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
 
+@Deprecated("instrument() instead")
 fun createOpenAIClient(): OpenAIClient {
     val openAIClient = OpenAIOkHttpClient.builder()
         .fromEnv()
         .build().apply {
-            patchClient(this, interceptor = MLFlowOpenAILogger())
+            patchClient(this, interceptor = OpenTelemetryOpenAILogger())
         }
 
     return openAIClient
 }
 
-private fun patchClient(openAIClient: OpenAIClient, interceptor: Interceptor) {
+fun instrument(client: OpenAIClient): OpenAIClient {
+    return patchClient(client, interceptor = OpenTelemetryOpenAILogger())
+}
+
+private fun patchClient(openAIClient: OpenAIClient, interceptor: Interceptor): OpenAIClient {
     val clientOptionsField =
         OpenAIClientImpl::class.java.getDeclaredField("clientOptions").apply { isAccessible = true }
     val clientOptions = clientOptionsField.get(openAIClient)
@@ -38,9 +43,11 @@ private fun patchClient(openAIClient: OpenAIClient, interceptor: Interceptor) {
     val interceptorsField = OkHttpClient::class.java.getDeclaredField("interceptors").apply { isAccessible = true }
 
     interceptorsField.set(okHttpClient, listOf(interceptor))
+
+    return openAIClient
 }
 
-class MLFlowOpenAILogger : Interceptor {
+class OpenTelemetryOpenAILogger : Interceptor {
     @KotlinFlowTrace(
         name = "Completions",
         spanType = SpanType.CHAT_MODEL,
