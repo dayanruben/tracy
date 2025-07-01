@@ -38,9 +38,13 @@ kotlin {
                 // TODO GET RID OF BASE EVAL TEST DEPENDENCIES
                 implementation(libs.openai)
                 implementation(libs.okhttp)
+
                 implementation(libs.opentelemetry)
                 implementation(libs.opentelemetry.kotlin)
                 implementation(libs.opentelemetry.sdk)
+                implementation(libs.opentelemetry.exporter.otlp)
+                implementation(libs.opentelemetry.exporter.logging)
+                implementation(libs.opentelemetry.semconv.incubating)
             }
         }
 
@@ -48,6 +52,7 @@ kotlin {
             dependencies {
                 implementation(libs.kotlin.test)
                 implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.opentelemetry.sdk.testing)
             }
         }
     }
