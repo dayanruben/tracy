@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
 import java.time.Duration
 import java.util.concurrent.TimeUnit
+import kotlin.test.AfterTest
 
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -25,7 +26,7 @@ abstract class BaseOpenTelemetryTracingTest {
     internal lateinit var tracer: Tracer
 
     @BeforeAll
-    fun setupTracing() {
+    fun setupTelemetry() {
         val tracing = initOpenTelemetry()
 
         tracerProvider = tracing.tracerProvider
@@ -33,18 +34,22 @@ abstract class BaseOpenTelemetryTracingTest {
         tracer = GlobalOpenTelemetry.getTracer(AI_DEVELOPMENT_KIT_TRACER)
     }
 
+    @AfterTest
+    fun cleanSpans() {
+        spanExporter.reset()
+    }
+
     @AfterAll
-    fun shutdownTracing() {
+    fun shutdownTelemetry() {
         tracerProvider.apply {
             forceFlush().join(1, TimeUnit.SECONDS)
             shutdown().join(1, TimeUnit.SECONDS)
         }
     }
 
-    fun analyzeSpans(function: (List<SpanData>) -> Unit) {
-        tracerProvider.forceFlush().whenComplete {
-            function(spanExporter.finishedSpanItems.mapNotNull { it })
-        }
+    fun analyzeSpans(): List<SpanData> {
+        tracerProvider.forceFlush().join(30, TimeUnit.SECONDS)
+        return spanExporter.finishedSpanItems.mapNotNull { it }
     }
 }
 
