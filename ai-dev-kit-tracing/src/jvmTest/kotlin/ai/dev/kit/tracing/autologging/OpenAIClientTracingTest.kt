@@ -2,6 +2,7 @@ package ai.dev.kit.tracing.autologging
 
 import ai.dev.kit.instrument
 import ai.dev.kit.tracing.BaseOpenTelemetryTracingTest
+import ai.dev.kit.tracing.fluent.processor.withSpan
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.chat.completions.ChatCompletion
@@ -88,6 +89,32 @@ class TracingTest : BaseOpenTelemetryTracingTest() {
             assertNotNull(llmSpan)
 
             assertEquals(llmSpan.parentSpanId, outerSpan.spanId, "LLM span is a child of the outer span")
+        }
+    }
+
+    @Test
+    fun testWithSpan() {
+        val customAttributeName = "testAttribute"
+
+        val result = withSpan("callChat", emptyMap()) {
+            it.setAttribute(customAttributeName, "testValue")
+
+            callChat(client)
+        }
+
+        analyzeSpans().let { spans ->
+            assertTrue("Two spans are created") { spans.size == 2 }
+
+            val spanMap = spans.groupBy { it.name }.mapValues { it.value.first() }
+            val outerSpan = spanMap["callChat"]
+            val llmSpan = spanMap["OpenAI-generation"]
+
+            assertNotNull(outerSpan)
+            assertNotNull(llmSpan)
+
+            assertEquals(llmSpan.parentSpanId, outerSpan.spanId, "LLM span is a child of the outer span")
+            assertEquals(result.toString(), outerSpan.attributes.asMap()[AttributeKey.stringKey("output")], "Outputs is properly captured")
+            assertNotNull(outerSpan.attributes.asMap()[AttributeKey.stringKey(customAttributeName)])
         }
     }
 }

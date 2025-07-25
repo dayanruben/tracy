@@ -19,6 +19,7 @@ import kotlin.coroutines.coroutineContext
 import kotlin.reflect.KFunction
 import kotlin.reflect.jvm.javaMethod
 
+@Deprecated("use withSpan() instead")
 actual inline fun <T> withTrace(
     function: KFunction<*>,
     args: Array<Any?>,
@@ -44,6 +45,37 @@ actual inline fun <T> withTrace(
     }
 }
 
+inline fun <T> withSpan(
+    name: String,
+    attributes: Map<String, Any?>,
+    block: (Span) -> T
+): T {
+    val tracer = GlobalOpenTelemetry.getTracer("ai.dev.kit.fluent.tracer")
+
+    val span = tracer.spanBuilder(name).startSpan()
+    val scope = span.makeCurrent()
+
+    attributes.forEach { (key, value) ->
+        // TODO: deal with types
+        span.setAttribute(key, value.toString())
+    }
+
+    try {
+        val result = block(span)
+        span.setAttribute("output", result.toString())
+
+        return result
+    } catch (e: Exception) {
+        span.recordException(e)
+        span.setStatus(StatusCode.ERROR, "Block $name execution failed")
+        throw e
+    } finally {
+        scope.close()
+        span.end()
+    }
+}
+
+// TODO: try to reduce code duplication
 actual suspend inline fun <T> withTraceSuspended(
     function: KFunction<*>,
     args: Array<Any?>,
