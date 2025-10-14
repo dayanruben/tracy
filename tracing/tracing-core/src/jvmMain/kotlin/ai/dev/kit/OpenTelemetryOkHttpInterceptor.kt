@@ -15,6 +15,8 @@ import okio.Buffer
 import okio.BufferedSource
 import okio.ForwardingSource
 import okio.buffer
+import kotlin.reflect.full.declaredMemberProperties
+import kotlin.reflect.jvm.isAccessible
 
 
 /**
@@ -49,7 +51,15 @@ fun <Client, ClientImpl, ClientOptions, ClientOkHttpClient> patchOpenAICompatibl
     val originalHttpClient = originalHttpClientField.get(clientOptions)
 
     val okHttpClientField = clientOkHttpClientClass.getDeclaredField("okHttpClient").apply { isAccessible = true }
-    val okHttpClient = okHttpClientField.get(originalHttpClient) as OkHttpClient
+
+    val okHttpClient = if (originalHttpClient::class.simpleName == "OkHttpClient") {
+        okHttpClientField.get(originalHttpClient) as OkHttpClient
+    } else {
+        val httpClientField = originalHttpClient::class.declaredMemberProperties.first { it.name == "httpClient" }
+            .apply { isAccessible = true }
+        val httpClient = httpClientField.getter.call(originalHttpClient)
+        okHttpClientField.get(httpClient) as OkHttpClient
+    }
 
     val interceptorsField = OkHttpClient::class.java.getDeclaredField("interceptors").apply { isAccessible = true }
 
@@ -69,7 +79,7 @@ abstract class OpenTelemetryOkHttpInterceptor(
         val span = tracer.spanBuilder(spanName).startSpan()
         var isStreamingRequest = false
 
-        span.makeCurrent().use { scopeIgnored ->
+        span.makeCurrent().use { _ ->
             try {
                 val request = chain.request()
                 val url = request.url
