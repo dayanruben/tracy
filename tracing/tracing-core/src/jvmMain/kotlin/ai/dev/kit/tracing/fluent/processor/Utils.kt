@@ -47,6 +47,8 @@ inline fun <T> withSpan(
 
     try {
         val result = block(span)
+        span.setAttribute("output", result.toString())
+
         return result
     } catch (e: Exception) {
         span.addExceptionAttributes(e)

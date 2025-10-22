@@ -50,7 +50,7 @@ kotlin {
                 implementation(project(":tracing:tracing-openai"))
                 implementation(project(":tracing:tracing-anthropic"))
                 implementation(project(":tracing:tracing-gemini"))
-
+                implementation(libs.openai)
             }
         }
     }

@@ -14,6 +14,13 @@ subprojects {
             if (!areTestsRunLocally) {
                 excludeTags("SkipForNonLocal")
             }
+
+            val skipped = System.getProperty("skip.llm.providers")
+                ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+                ?: emptyList()
+            if (skipped.isNotEmpty()) {
+                excludeTags(*skipped.toTypedArray())
+            }
         }
     }
 }
