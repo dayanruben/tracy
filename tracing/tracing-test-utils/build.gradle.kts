@@ -1,9 +1,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
 
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    kotlin("multiplatform")
     alias(libs.plugins.kotlin.serialization)
     id("ai.dev.kit.trace")
+    id("ai.kotlin.dokka")
 }
 
 kotlin {

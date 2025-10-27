@@ -2,8 +2,20 @@ rootProject.name = "ai-dev-kit"
 
 pluginManagement {
     includeBuild("publishing")
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
 
+@Suppress("UnstableApiUsage")
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+    }
+}
+
+include("docs")
 include("eval")
 include("examples")
 include("tracing:tracing-anthropic")
