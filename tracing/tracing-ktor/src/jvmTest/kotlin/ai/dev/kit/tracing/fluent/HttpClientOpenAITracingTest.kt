@@ -314,7 +314,7 @@ class HttpClientOpenAITracingTest : BaseOpenTelemetryTracingTest() {
         endpoint: String,
         requestBody: String,
     ) = runTest {
-        val client: HttpClient = instrument(HttpClient(), OpenAILLMTracingAdapter())
+        val client: HttpClient = instrument(HttpClient(), llmTracingAdapter)
 
         val response = client.post(endpoint) {
             addAuthHeaders()
