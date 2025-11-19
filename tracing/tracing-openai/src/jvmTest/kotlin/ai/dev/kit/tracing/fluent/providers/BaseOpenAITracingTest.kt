@@ -3,9 +3,9 @@ package ai.dev.kit.tracing.fluent.providers
 import ai.dev.kit.exporters.SupportedMediaContentTypes
 import ai.dev.kit.exporters.UploadableMediaContentAttributeKeys
 import ai.dev.kit.tracing.BaseOpenTelemetryTracingTest
-import com.openai.core.ClientOptions.Companion.PRODUCTION_URL
-import ai.dev.kit.tracing.autologging.createOpenAIClient
 import com.openai.client.OpenAIClient
+import com.openai.client.okhttp.OpenAIOkHttpClient
+import com.openai.core.ClientOptions.Companion.PRODUCTION_URL
 import com.openai.core.JsonArray
 import com.openai.core.JsonString
 import com.openai.core.JsonValue
@@ -19,10 +19,13 @@ import com.openai.models.responses.FunctionTool
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.sdk.trace.data.SpanData
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.provider.Arguments
 import java.io.File
-import java.util.Base64
+import java.io.InputStream
+import java.time.Duration
+import java.util.*
 import java.util.stream.Stream
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,20 +34,47 @@ import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class BaseOpenAITracingTest : BaseOpenTelemetryTracingTest() {
-    /**
-     * When no value is provided, defaults to [PRODUCTION_URL].
-     */
-    protected val llmProviderUrl: String? = System.getenv("LLM_PROVIDER_URL")
-
-    protected val llmProviderApiKey =
-        System.getenv("OPENAI_API_KEY") ?: System.getenv("LLM_PROVIDER_API_KEY")
+    protected val llmProviderApiKey = System.getenv("OPENAI_API_KEY")
+        ?: System.getenv("LLM_PROVIDER_API_KEY")
         ?: error("LLM_PROVIDER_API_KEY environment variable is not set")
 
-    protected fun createOpenAIClient(): OpenAIClient {
-        return createOpenAIClient(llmProviderUrl, llmProviderApiKey)
+    /**
+     * When no value is provided, defaults to [PRODUCTION_URL].
+     *
+     * When LiteLLM is used as a provider, prefer [patchedProviderUrl].
+     */
+    protected val llmProviderUrl: String = System.getenv("LLM_PROVIDER_URL") ?: PRODUCTION_URL
+
+    /**
+     * When LiteLLM is used as a provider, the API URL gets changed to the
+     * OpenAI-oriented pass-through endpoint.
+     *
+     * See [LiteLLM: Create Pass Through Endpoints](https://docs.litellm.ai/docs/proxy/pass_through)
+     */
+    protected val patchedProviderUrl = when(val baseUrl = llmProviderUrl.removeSuffix("/v1")) {
+        // TODO: remove direct use of litellm
+        // when using LiteLLM, switch to the pass-through
+        "https://litellm.labs.jb.gg" -> "$baseUrl/openai"
+        else -> llmProviderUrl
+    }
+
+    protected open fun createOpenAIClient(
+        url: String? = llmProviderUrl,
+        apiKey: String = llmProviderApiKey,
+        timeout: Duration = Duration.ofSeconds(60)
+    ): OpenAIClient {
+        return OpenAIOkHttpClient.builder()
+            .baseUrl(url)
+            .apiKey(apiKey)
+            .timeout(timeout)
+            .build()
     }
 
     protected fun validateBasicTracing(model: ChatModel) {
+        validateBasicTracing(model.asString())
+    }
+
+    protected fun validateBasicTracing(model: String) {
         val traces = analyzeSpans()
 
         assertEquals(1, traces.size)
@@ -52,13 +82,12 @@ abstract class BaseOpenAITracingTest : BaseOpenTelemetryTracingTest() {
 
         assertNotNull(trace)
         assertTrue(
-            (llmProviderUrl ?: PRODUCTION_URL)
-                .startsWith(trace.attributes[AttributeKey.stringKey("gen_ai.api_base")].toString())
+            llmProviderUrl.startsWith(trace.attributes[AttributeKey.stringKey("gen_ai.api_base")].toString())
         )
 
         val responseModel = trace.attributes[AttributeKey.stringKey("gen_ai.response.model")]
         assertNotNull(responseModel)
-        assertTrue(responseModel.startsWith(model.asString()))
+        assertTrue(responseModel.startsWith(model))
 
         val content = trace.attributes[AttributeKey.stringKey("gen_ai.completion.0.content")]
         assertFalse(content.isNullOrEmpty())
@@ -244,18 +273,23 @@ abstract class BaseOpenAITracingTest : BaseOpenTelemetryTracingTest() {
     ) {
         for ((index, values) in expected.withIndex()) {
             val keys = UploadableMediaContentAttributeKeys.forIndex(index)
+            val failMessage = "Media content attribute values do not match for index $index"
 
             when (values) {
                 is MediaContentAttributeValues.Data -> {
-                    assertEquals(values.type, span.attributes[keys.type])
-                    assertEquals(values.field, span.attributes[keys.field])
-                    assertEquals(values.contentType, span.attributes[keys.contentType])
-                    assertEquals(values.data, span.attributes[keys.data])
+                    assertEquals(values.type.type, span.attributes[keys.type], failMessage)
+                    assertEquals(values.field, span.attributes[keys.field], failMessage)
+                    assertEquals(values.contentType, span.attributes[keys.contentType], failMessage)
+                    if (values.data != null) {
+                        assertEquals(values.data, span.attributes[keys.data], failMessage)
+                    }
                 }
                 is MediaContentAttributeValues.Url -> {
-                    assertEquals(values.type, span.attributes[keys.type])
-                    assertEquals(values.field, span.attributes[keys.field])
-                    assertEquals(values.url, span.attributes[keys.url])
+                    assertEquals(values.type.type, span.attributes[keys.type], failMessage)
+                    assertEquals(values.field, span.attributes[keys.field], failMessage)
+                    if (values.url != null) {
+                        assertEquals(values.url, span.attributes[keys.url], failMessage)
+                    }
                 }
             }
         }
@@ -264,16 +298,13 @@ abstract class BaseOpenAITracingTest : BaseOpenTelemetryTracingTest() {
     protected fun MediaSource.toMediaContentAttributeValues(
         field: String
     ): MediaContentAttributeValues {
-        val media = this
-        return when (media) {
+        return when (val media = this) {
             is MediaSource.File -> MediaContentAttributeValues.Data(
-                type = SupportedMediaContentTypes.BASE64.type,
                 field = field,
                 contentType = media.contentType,
                 data = loadFileAsBase64Encoded(media.filepath)
             )
             is MediaSource.Link -> MediaContentAttributeValues.Url(
-                type = SupportedMediaContentTypes.URL.type,
                 field = field,
                 url = media.url,
             )
@@ -320,19 +351,32 @@ abstract class BaseOpenAITracingTest : BaseOpenTelemetryTracingTest() {
             data class Link(val url: String) : MediaSource()
         }
 
-        sealed class MediaContentAttributeValues {
+        sealed class MediaContentAttributeValues(val type: SupportedMediaContentTypes) {
             data class Url(
-                val type: String,
                 val field: String,
-                val url: String
-            ) : MediaContentAttributeValues()
+                val url: String?
+            ) : MediaContentAttributeValues(SupportedMediaContentTypes.URL)
 
             data class Data(
-                val type: String,
                 val field: String,
                 val contentType: String,
-                val data: String,
-            ) : MediaContentAttributeValues()
+                val data: String?,
+            ) : MediaContentAttributeValues(SupportedMediaContentTypes.BASE64)
         }
+    }
+
+    protected fun readResource(filepath: String): InputStream {
+        return javaClass.classLoader.getResourceAsStream(filepath)
+            ?: error("File not found")
+    }
+
+    /**
+     * Assumes that the provided URL points to the expected OpenAI production endpoint.
+     * Uses JUnit assumptions to enforce this condition during testing.
+     *
+     * @param url The URL to be validated as an OpenAI production endpoint.
+     */
+    protected fun assumeOpenAIEndpoint(url: String) {
+        Assumptions.assumeTrue(url.startsWith(PRODUCTION_URL))
     }
 }

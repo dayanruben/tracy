@@ -1,22 +1,29 @@
-package ai.dev.kit.adapters.openai
+package ai.dev.kit.adapters.openai.handlers
 
-import ai.dev.kit.adapters.Url
-import ai.dev.kit.adapters.openai.media.OpenAIMediaContentExtractor
+import ai.dev.kit.adapters.media.MediaContent
+import ai.dev.kit.adapters.media.MediaContentExtractor
+import ai.dev.kit.adapters.media.MediaContentPart
+import ai.dev.kit.adapters.media.Resource
+import ai.dev.kit.common.isValidUrl
+import ai.dev.kit.http.protocol.Request
+import ai.dev.kit.http.protocol.Response
+import ai.dev.kit.http.protocol.asJson
+import io.ktor.http.*
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_INPUT_TOKENS
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_OUTPUT_TOKENS
 import kotlinx.serialization.json.*
+import mu.KotlinLogging
 
 /**
  * Handler for OpenAI Chat Completions API
  */
 internal class ChatCompletionsHandler(
-    private val extractor: OpenAIMediaContentExtractor
-) : OpenAIApiHandler {
-
-    override fun handleRequestAttributes(span: Span, url: Url, body: JsonObject) {
-        OpenAIApiUtils.setCommonRequestAttributes(span, body)
+    private val extractor: MediaContentExtractor) : OpenAIApiHandler {
+    override fun handleRequestAttributes(span: Span, request: Request) {
+        val body = request.body.asJson()?.jsonObject ?: return
+        OpenAIApiUtils.setCommonRequestAttributes(span, request)
 
         body["messages"]?.let {
             for ((index, message) in it.jsonArray.withIndex()) {
@@ -79,7 +86,8 @@ internal class ChatCompletionsHandler(
         }
         else if (content is JsonArray) {
             // array that contains entries of either image, audio, file or normal text
-            extractor.setUploadableContentAttributes(span, field = "input", content)
+            val mediaContent = parseMediaContent(content)
+            extractor.setUploadableContentAttributes(span, field = "input", mediaContent)
             content.jsonArray.toString()
         }
         else {
@@ -88,7 +96,9 @@ internal class ChatCompletionsHandler(
         span.setAttribute("gen_ai.prompt.$index.content", result)
     }
 
-    override fun handleResponseAttributes(span: Span, body: JsonObject) {
+    override fun handleResponseAttributes(span: Span, response: Response) {
+        val body = response.body.asJson()?.jsonObject ?: return
+
         body["choices"]?.let {
             for ((index, choice) in it.jsonArray.withIndex()) {
                 val index = choice.jsonObject["index"]?.jsonPrimitive?.intOrNull ?: index
@@ -180,5 +190,71 @@ internal class ChatCompletionsHandler(
         usage["completion_tokens"]?.jsonPrimitive?.intOrNull?.let {
             span.setAttribute(GEN_AI_USAGE_OUTPUT_TOKENS, it)
         }
+    }
+
+    /**
+     * Extracts media content parts (images, audio, files) from JSON content.
+     *
+     * As for files, supports only files attached directly in the data URL (i.e., in the `file_data` field).
+     * Files attached via file IDs (`file_id` field) are ignored.
+     * See the schema for files: [Chat Completions API: File Content Schema](https://platform.openai.com/docs/api-reference/chat/create#chat-create-messages-user-message-content-array-of-content-parts-file-content-part-file).
+     *
+     * See endpoint details: [Chat Completions API](https://platform.openai.com/docs/api-reference/chat/create)
+     */
+    private fun parseMediaContent(content: JsonArray): MediaContent {
+        val parts = buildList {
+            for (part in content) {
+                val type = part.jsonObject["type"]?.jsonPrimitive?.content ?: continue
+
+                val mediaPart = when (type) {
+                    "image_url" -> {
+                        val url = part.jsonObject["image_url"]?.jsonObject["url"]?.jsonPrimitive?.content ?: continue
+                        if (url.isValidUrl()) {
+                            MediaContentPart(Resource.Url(url))
+                        }
+                        else if (url.startsWith("data:")) {
+                            MediaContentPart(Resource.DataUrl(url))
+                        }
+                        else {
+                            null
+                        }
+                    }
+                    "input_audio" -> {
+                        // data is base64-encoded
+                        val data = part.jsonObject["input_audio"]?.jsonObject["data"]?.jsonPrimitive?.content
+                            ?: continue
+                        val format = part.jsonObject["input_audio"]?.jsonObject["format"]?.jsonPrimitive?.content
+                            ?: continue
+
+                        val contentType = try {
+                            ContentType.parse("audio/$format")
+                        } catch (err: Exception) {
+                            logger.trace("Failed to parse content type: 'audio/$format'. Skipping this content part", err)
+                            null
+                        } ?: continue
+
+                        MediaContentPart(resource = Resource.Base64(data, contentType))
+                    }
+                    "file" -> {
+                        // OpenAI expects a data url with a base64-encoded PDF file
+                        val fileData = part.jsonObject["file"]?.jsonObject["file_data"]?.jsonPrimitive?.content
+                            ?: continue
+                        MediaContentPart(Resource.DataUrl(fileData))
+                    }
+                    else -> null
+                }
+
+                // append media part if it's valid
+                if (mediaPart != null) {
+                    add(mediaPart)
+                }
+            }
+        }
+
+        return MediaContent(parts)
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger {}
     }
 }

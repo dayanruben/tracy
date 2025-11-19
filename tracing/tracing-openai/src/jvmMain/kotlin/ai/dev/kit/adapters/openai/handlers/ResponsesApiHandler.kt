@@ -1,7 +1,13 @@
-package ai.dev.kit.adapters.openai
+package ai.dev.kit.adapters.openai.handlers
 
-import ai.dev.kit.adapters.Url
-import ai.dev.kit.adapters.openai.media.OpenAIMediaContentExtractor
+import ai.dev.kit.adapters.media.MediaContent
+import ai.dev.kit.adapters.media.MediaContentExtractor
+import ai.dev.kit.adapters.media.MediaContentPart
+import ai.dev.kit.adapters.media.Resource
+import ai.dev.kit.common.isValidUrl
+import ai.dev.kit.http.protocol.Request
+import ai.dev.kit.http.protocol.Response
+import ai.dev.kit.http.protocol.asJson
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.*
@@ -11,11 +17,10 @@ import kotlinx.serialization.json.*
  * Handler for OpenAI Responses API
  */
 internal class ResponsesApiHandler(
-    private val extractor: OpenAIMediaContentExtractor
-) : OpenAIApiHandler {
-
-    override fun handleRequestAttributes(span: Span, url: Url, body: JsonObject) {
-        OpenAIApiUtils.setCommonRequestAttributes(span, body)
+    private val extractor: MediaContentExtractor) : OpenAIApiHandler {
+    override fun handleRequestAttributes(span: Span, request: Request) {
+        val body = request.body.asJson()?.jsonObject ?: return
+        OpenAIApiUtils.setCommonRequestAttributes(span, request)
 
         body["previous_response_id"]?.jsonPrimitive?.contentOrNull?.let {
             span.setAttribute("gen_ai.request.previous_response_id", it)
@@ -100,13 +105,15 @@ internal class ResponsesApiHandler(
         for (input in inputs) {
             val content = input.jsonObject["content"]
             if (content is JsonArray) {
-                extractor.setUploadableContentAttributes(span, field, content)
+                val mediaContent = parseMediaContent(content)
+                extractor.setUploadableContentAttributes(span, field, mediaContent)
             }
         }
     }
 
-    override fun handleResponseAttributes(span: Span, body: JsonObject) {
-        OpenAIApiUtils.setCommonResponseAttributes(span, body)
+    override fun handleResponseAttributes(span: Span, response: Response) {
+        val body = response.body.asJson()?.jsonObject ?: return
+        OpenAIApiUtils.setCommonResponseAttributes(span, response)
 
         body["output"]?.let { outputs ->
             processAttributeTypes(span, outputs.jsonArray, 0, "completion")
@@ -117,7 +124,25 @@ internal class ResponsesApiHandler(
         }
     }
 
-    fun processAttributeTypes(span: Span, events: JsonArray, indexOfFirstAttribute: Int, type: String) {
+    override fun handleStreaming(span: Span, events: String): Unit = runCatching {
+        for (line in events.lineSequence()) {
+            if (!line.startsWith("data:")) continue
+            val data = line.removePrefix("data:").trim()
+
+            val obj = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: continue
+            if (obj["type"]?.jsonPrimitive?.content == "response.output_text.done") {
+                obj["text"]?.jsonPrimitive?.content?.let { finalText ->
+                    span.setAttribute("gen_ai.completion.0.content", finalText)
+                    span.setAttribute("gen_ai.completion.0.finish_reason", "stop")
+                }
+            }
+        }
+    }.getOrElse { exception ->
+        span.setStatus(StatusCode.ERROR)
+        span.recordException(exception)
+    }
+
+   private fun processAttributeTypes(span: Span, events: JsonArray, indexOfFirstAttribute: Int, type: String) {
         var index = indexOfFirstAttribute
 
         for (output in events.jsonArray) {
@@ -197,24 +222,6 @@ internal class ResponsesApiHandler(
         }
     }
 
-    override fun handleStreaming(span: Span, events: String): Unit = runCatching {
-        for (line in events.lineSequence()) {
-            if (!line.startsWith("data:")) continue
-            val data = line.removePrefix("data:").trim()
-
-            val obj = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: continue
-            if (obj["type"]?.jsonPrimitive?.content == "response.output_text.done") {
-                obj["text"]?.jsonPrimitive?.content?.let { finalText ->
-                    span.setAttribute("gen_ai.completion.0.content", finalText)
-                    span.setAttribute("gen_ai.completion.0.finish_reason", "stop")
-                }
-            }
-        }
-    }.getOrElse { exception ->
-        span.setStatus(StatusCode.ERROR)
-        span.recordException(exception)
-    }
-
     /**
      * Sets usage attributes (input_tokens/output_tokens)
      */
@@ -225,5 +232,51 @@ internal class ResponsesApiHandler(
         usage["output_tokens"]?.jsonPrimitive?.intOrNull?.let {
             span.setAttribute(GEN_AI_USAGE_OUTPUT_TOKENS, it)
         }
+    }
+
+    /**
+     * Extracts media content parts (images, files) from JSON content.
+     *
+     * See details: [Responses API](https://platform.openai.com/docs/api-reference/responses/create)
+     */
+    private fun parseMediaContent(content: JsonArray): MediaContent {
+        val parts = buildList {
+            for (part in content) {
+                val type = part.jsonObject["type"]?.jsonPrimitive?.content ?: continue
+
+                val mediaPart = when (type) {
+                    "input_image" -> {
+                        val url = part.jsonObject["image_url"]?.jsonPrimitive?.content ?: continue
+                        if (url.isValidUrl()) {
+                            MediaContentPart(Resource.Url(url))
+                        } else if (url.startsWith("data:")) {
+                            MediaContentPart(Resource.DataUrl(url))
+                        } else {
+                            null
+                        }
+                    }
+                    "input_file" -> {
+                        if ("file_url" in part.jsonObject) {
+                            val url = part.jsonObject["file_url"]?.jsonPrimitive?.content ?: continue
+                            if (url.isValidUrl()) MediaContentPart(Resource.Url(url)) else null
+                        }
+                        else if ("file_data" in part.jsonObject) {
+                            val dataUrl = part.jsonObject["file_data"]?.jsonPrimitive?.content ?: continue
+                            MediaContentPart(Resource.DataUrl(dataUrl))
+                        } else {
+                            null
+                        }
+                    }
+                    else -> null
+                }
+
+                // if the media part is valid, append it to the list
+                if (mediaPart != null) {
+                    add(mediaPart)
+                }
+            }
+        }
+
+        return MediaContent(parts)
     }
 }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -24,13 +25,15 @@ class HttpClientGeminiTracingTest : BaseOpenTelemetryTracingTest() {
         System.getenv("GEMINI_API_KEY") ?: System.getenv("LLM_PROVIDER_API_KEY")
         ?: error("LLM_PROVIDER_API_KEY environment variable is not set")
 
+    // TODO: fix
+    // Gemini tests for now is only supported with LiteLLM
+    @EnabledIfEnvironmentVariable(
+        named = "LLM_PROVIDER_URL",
+        matches = "https://litellm.labs.jb.gg",
+        disabledReason = "LLM_PROVIDER_URL environment variable is not https://litellm.labs.jb.gg",
+    )
     @Test
     fun `test Ktor HttpClient auto tracing for Gemini`() = runTest {
-        // TODO: fix
-        if (llmProviderUrl?.startsWith("https://litellm.labs.jb.gg") != true) {
-            error("Gemini tests for now is only supported with LITELLM")
-        }
-
         val client: HttpClient = instrument(HttpClient(), GeminiLLMTracingAdapter())
 
         val model = "gemini-2.5-flash"
@@ -42,7 +45,8 @@ class HttpClientGeminiTracingTest : BaseOpenTelemetryTracingTest() {
             "${llmProviderUrl}/vertex_ai/v1/projects/$projectId/locations/$location/publishers/google/models/$model:generateContent"
 
         val response = client.post(url) {
-            header("x-litellm-api-key", "Bearer $llmProviderApiKey") // TODO: fix
+            // TODO: fix
+            header("x-litellm-api-key", "Bearer $llmProviderApiKey")
             header("Content-Type", "application/json")
             setBody(
                 """
