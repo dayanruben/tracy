@@ -1,13 +1,21 @@
 package ai.dev.kit.adapters
 
+import ai.dev.kit.adapters.media.MediaContent
+import ai.dev.kit.adapters.media.MediaContentExtractor
+import ai.dev.kit.adapters.media.MediaContentPart
+import ai.dev.kit.adapters.media.Resource
 import ai.dev.kit.http.protocol.Request
 import ai.dev.kit.http.protocol.Response
 import ai.dev.kit.http.protocol.asJson
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes
 import kotlinx.serialization.json.*
+import mu.KotlinLogging
+import io.ktor.http.ContentType
 
-class AnthropicLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiIncubatingAttributes.GenAiSystemIncubatingValues.ANTHROPIC) {
+class AnthropicLLMTracingAdapter(
+    private val extractor: MediaContentExtractor
+): LLMTracingAdapter(genAISystem = GenAiIncubatingAttributes.GenAiSystemIncubatingValues.ANTHROPIC) {
     override fun getRequestBodyAttributes(span: Span, request: Request) {
         val body = request.body.asJson()?.jsonObject ?: return
 
@@ -52,6 +60,11 @@ class AnthropicLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiIncubati
                     span.setAttribute("gen_ai.tool.$index.parameters", tool.jsonObject["input_schema"].toString())
                 }
             }
+        }
+
+        val mediaContent = parseMediaContent(body)
+        if (mediaContent != null) {
+            extractor.setUploadableContentAttributes(span, field = "input", mediaContent)
         }
     }
 
@@ -130,4 +143,138 @@ class AnthropicLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiIncubati
     // streaming is not supported
     override fun isStreamingRequest(request: Request) = false
     override fun handleStreaming(span: Span, events: String) = Unit
+
+    /**
+     * Parses content of the `messages` field when its type is
+     * either `ImageBlockParam` or `DocumentBlockParam`.
+     *
+     * The supported `source` fields are:
+     *   1. Images (`ImageBlockParam`): `Base64ImageSource`, `URLImageSource`
+     *   2. Documents (`DocumentBlockParam`): `Base64PDFSource`, `URLPDFSource`, `ContentBlockSource` with `ImageBlockParam`
+     *
+     * See [Messages API Docs](https://platform.claude.com/docs/en/api/messages/create)
+     */
+    private fun parseMediaContent(body: JsonObject): MediaContent? {
+        if (body["messages"] !is JsonArray) {
+            return null
+        }
+
+        val messages = body["messages"]?.jsonArray ?: return null
+
+        val parts: List<MediaContentPart> = buildList {
+            val supportedMessageTypes = listOf("image", "document")
+
+            for (message in messages) {
+                // message: { content: [] }
+                if (message !is JsonObject || message["content"] !is JsonArray) {
+                    continue
+                }
+                val content = message["content"]?.jsonArray ?: continue
+
+                for (part in content) {
+                    val messageType = part.jsonObject["type"]?.jsonPrimitive?.content ?: continue
+                    if (messageType !in supportedMessageTypes) {
+                        continue
+                    }
+
+                    // source is either of:
+                    //  1. source: { data, media_type, type: "base64" }
+                    //  2. source: { url, type: "url" }
+                    //  3. source: { content: [{ type: "image", source: {...} }, ...] }
+                    // see: https://platform.claude.com/docs/en/api/messages/create
+                    val source = part.jsonObject["source"]?.jsonObject ?: continue
+                    val contentParts = parseSource(messageType, source).map {
+                        MediaContentPart(it)
+                    }
+                    addAll(contentParts)
+                }
+            }
+        }
+
+        return MediaContent(parts)
+    }
+
+    /**
+     * Parses the `source` field of message types:
+     *   1. `ImageBlockParam`: both `Base64ImageSource` and `URLImageSource`.
+     *   2. `DocumentBlockParam`: `Base64PDFSource`, `URLPDFSource`, and `ContentBlockSource`.
+     *
+     * See [Messages API Docs](https://platform.claude.com/docs/en/api/messages/create)
+     */
+    private fun parseSource(messageType: String, source: JsonObject): List<Resource> {
+        val sourceType = source["type"]?.jsonPrimitive?.content ?: return emptyList()
+        val resources = when (sourceType) {
+            "url" -> {
+                val url = parseUrl(messageType, source) ?: return emptyList()
+                listOf(url)
+            }
+            "base64" -> {
+                val base64 = parseBase64(messageType, source) ?: return emptyList()
+                listOf(base64)
+            }
+            "content" -> parseContent(messageType, source)
+            else -> emptyList()
+        }
+        return resources
+    }
+
+    private fun parseUrl(messageType: String, source: JsonObject): Resource.Url? {
+        val url = source["url"]?.jsonPrimitive?.content
+        if (url == null) {
+            logger.warn { "Message with type '$messageType' has no URL source" }
+            return null
+        }
+        // add URL resource
+        return Resource.Url(url)
+    }
+
+    private fun parseBase64(messageType: String, source: JsonObject): Resource.Base64? {
+        val data = source["data"]?.jsonPrimitive?.content
+        val mediaType = source["media_type"]?.jsonPrimitive?.content
+
+        if (data == null || mediaType == null) {
+            logger.warn { "Message with type '$messageType' misses either 'data' or 'media_type' attribute" }
+            return null
+        }
+
+        val contentType = try {
+            ContentType.parse(mediaType)
+        } catch (err: Exception) {
+            logger.warn(err) { "Failed to parse content type from media type of '$mediaType'" }
+            null
+        } ?: return null
+
+        // add base64 resource
+        return Resource.Base64(data, contentType)
+    }
+
+    private fun parseContent(messageType: String, source: JsonObject): List<Resource> {
+        val content = source["content"]
+
+        if (content == null || content !is JsonArray) {
+            logger.warn { "Message with type '$messageType' has no content source" }
+            return emptyList()
+        }
+
+        // content is an array of `ContentBlockSourceContent`.
+        // See: https://platform.claude.com/docs/en/api/messages#content_block_source_content
+        val resources: List<Resource> = buildList {
+            for (param in content.jsonArray) {
+                val type = param.jsonObject["type"]?.jsonPrimitive?.content ?: continue
+                // ImageBlockParam
+                if (type == "image") {
+                    // the image is either Base64ImageSource or URLImageSource
+                    val imageSource = param.jsonObject["source"]?.jsonObject ?: continue
+                    val resource = parseSource(messageType, imageSource)
+                    addAll(resource)
+                }
+            }
+        }
+
+        return resources
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger {}
+    }
 }

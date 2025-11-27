@@ -1,7 +1,10 @@
 package ai.dev.kit.tracing.fluent.providers
 
 import ai.dev.kit.clients.instrument
-import ai.dev.kit.tracing.fluent.providers.BaseOpenAITracingTest.Companion.MediaSource
+import ai.dev.kit.tracing.MediaSource
+import ai.dev.kit.tracing.loadFileAsBase64Encoded
+import ai.dev.kit.tracing.toDataUrl
+import ai.dev.kit.tracing.toMediaContentAttributeValues
 import com.openai.models.ChatModel
 import com.openai.models.chat.completions.*
 import kotlinx.coroutines.test.runTest
