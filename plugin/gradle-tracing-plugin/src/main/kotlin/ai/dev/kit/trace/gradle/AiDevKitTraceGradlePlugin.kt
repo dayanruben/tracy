@@ -14,7 +14,7 @@ class AiDevKitTraceGradlePlugin : KotlinCompilerPluginSupportPlugin {
          * This value is automatically updated by the GitHub Action "Auto Version and Publish Release".
          * Do not rename or remove `VERSION`, or the workflow will fail.
          */
-        const val VERSION = "0.0.23"
+        const val VERSION = "0.0.24"
         const val PATCH_GROUP_BOUNDARY = 20
     }
 

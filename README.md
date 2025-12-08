@@ -33,16 +33,16 @@ You can use it to:
 1. Add dependencies to the `build.gradle.kts` file:
     ```kotlin
     plugins {
-        id("ai.dev.kit.trace") version "0.0.23"
+        id("ai.dev.kit.trace") version "0.0.24"
     }
     
     dependencies {
-        implementation("com.jetbrains:ai-dev-kit-tracing-core:0.0.23")
+        implementation("com.jetbrains:ai-dev-kit-tracing-core:0.0.24")
         // Clients Auto Tracing
-        implementation("com.jetbrains:ai-dev-kit-tracing-anthropic:0.0.23")
-        implementation("com.jetbrains:ai-dev-kit-tracing-gemini:0.0.23")
-        implementation("com.jetbrains:ai-dev-kit-tracing-ktor:0.0.23")
-        implementation("com.jetbrains:ai-dev-kit-tracing-openai:0.0.23")
+        implementation("com.jetbrains:ai-dev-kit-tracing-anthropic:0.0.24")
+        implementation("com.jetbrains:ai-dev-kit-tracing-gemini:0.0.24")
+        implementation("com.jetbrains:ai-dev-kit-tracing-ktor:0.0.24")
+        implementation("com.jetbrains:ai-dev-kit-tracing-openai:0.0.24")
     }
     ```
 2. Make sure that you have `maven("https://packages.jetbrains.team/maven/p/ai-development-kit/ai-development-kit")` in
@@ -71,16 +71,16 @@ You can use it to:
 1. Add dependencies to the `build.gradle.kts` file:
     ```groovy
     plugins {
-        id 'ai.dev.kit.trace' version '0.0.23'
+        id 'ai.dev.kit.trace' version '0.0.24'
     }
     
     dependencies {
-        implementation 'com.jetbrains:ai-dev-kit-tracing-core:0.0.23'
+        implementation 'com.jetbrains:ai-dev-kit-tracing-core:0.0.24'
         // Clients Auto Tracing
-        implementation 'com.jetbrains:ai-dev-kit-tracing-anthropic:0.0.23'
-        implementation 'com.jetbrains:ai-dev-kit-tracing-gemini:0.0.23'
-        implementation 'com.jetbrains:ai-dev-kit-tracing-ktor:0.0.23'
-        implementation 'com.jetbrains:ai-dev-kit-tracing-openai:0.0.23'
+        implementation 'com.jetbrains:ai-dev-kit-tracing-anthropic:0.0.24'
+        implementation 'com.jetbrains:ai-dev-kit-tracing-gemini:0.0.24'
+        implementation 'com.jetbrains:ai-dev-kit-tracing-ktor:0.0.24'
+        implementation 'com.jetbrains:ai-dev-kit-tracing-openai:0.0.24'
     }
     ```
 2. Make sure that you have `maven("https://packages.jetbrains.team/maven/p/ai-development-kit/ai-development-kit")` in
@@ -139,7 +139,7 @@ You can use it to:
                     - 2.1.19 -> 2.1.0
                     - 2.1.23 -> 2.1.20 -->
                     <artifactId>ai-dev-kit-tracing-compiler-plugin-2.1.0-jvm</artifactId>
-                    <version>0.0.23</version>
+                    <version>0.0.24</version>
                   </dependency>
               </dependencies>
           </plugin>
@@ -149,28 +149,28 @@ You can use it to:
         <dependency>
           <groupId>com.jetbrains</groupId>
           <artifactId>ai-dev-kit-tracing-core-jvm</artifactId>
-          <version>0.0.23</version>
+          <version>0.0.24</version>
         </dependency>
           <!-- Clients Auto Tracing -->
         <dependency>
             <groupId>com.jetbrains</groupId>
             <artifactId>ai-dev-kit-tracing-anthropic-jvm</artifactId>
-            <version>0.0.23</version>
+            <version>0.0.24</version>
         </dependency>
         <dependency>
             <groupId>com.jetbrains</groupId>
             <artifactId>ai-dev-kit-tracing-gemini-jvm</artifactId>
-            <version>0.0.23</version>
+            <version>0.0.24</version>
         </dependency>
         <dependency>
             <groupId>com.jetbrains</groupId>
             <artifactId>ai-dev-kit-tracing-ktor-jvm</artifactId>
-            <version>0.0.23</version>
+            <version>0.0.24</version>
         </dependency>
         <dependency>
             <groupId>com.jetbrains</groupId>
             <artifactId>ai-dev-kit-tracing-openai-jvm</artifactId>
-            <version>0.0.23</version>
+            <version>0.0.24</version>
         </dependency>
     </dependencies>
       ```
