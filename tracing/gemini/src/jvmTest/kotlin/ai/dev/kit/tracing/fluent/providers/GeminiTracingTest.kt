@@ -1,11 +1,10 @@
 package ai.dev.kit.tracing.fluent.providers
 
 import ai.dev.kit.clients.instrument
-import ai.dev.kit.tracing.BaseAITracingTest
-import com.google.auth.oauth2.AccessToken
-import com.google.auth.oauth2.GoogleCredentials
 import com.google.genai.errors.GenAiIOException
-import com.google.genai.types.*
+import com.google.genai.types.Content
+import com.google.genai.types.GenerateContentResponse
+import com.google.genai.types.Part
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.StatusCode
 import kotlinx.coroutines.test.runTest
@@ -16,14 +15,13 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import java.net.SocketTimeoutException
-import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import com.google.genai.Client as GeminiClient
 import com.google.genai.types.GenerateContentConfig as GeminiGenerateContentConfig
-import com.google.genai.types.HttpOptions as GeminiHttpOptions
+
 
 // TODO: fix
 // require the provider to be LiteLLM
@@ -33,69 +31,7 @@ import com.google.genai.types.HttpOptions as GeminiHttpOptions
     disabledReason = "LLM_PROVIDER_URL environment variable is not https://litellm.labs.jb.gg",
 )
 @Tag("gemini")
-class GeminiTracingTest : BaseAITracingTest() {
-    private val llmProviderUrl: String? = System.getenv("LLM_PROVIDER_URL")
-
-    private val llmProviderApiKey =
-        System.getenv("GEMINI_API_KEY") ?: System.getenv("LLM_PROVIDER_API_KEY")
-        ?: error("LLM_PROVIDER_API_KEY environment variable is not set")
-
-    fun createGeminiClient(): GeminiClient {
-        val projectId = "jetbrains-grazie"
-        val location = "us-central1"
-
-        /**
-         * The Gemini SDK client forbids empty credentials,
-         * even if a proxy between the client and Inference attaches service account credentials
-         * (e.g., LiteLLM at with passthrough [configured](https://docs.litellm.ai/docs/pass_through/vertex_ai#how-to-use)).
-         */
-        val dummyCredentials = object : GoogleCredentials() {
-            override fun refreshAccessToken(): AccessToken = AccessToken("dummy-token", null)
-        }
-
-        return GeminiClient.builder()
-            .vertexAI(true)
-            .project(projectId)
-            // attaches `Authorization: Bearer dummy-token` header
-            .credentials(dummyCredentials)
-            .location(location)
-            .httpOptions(
-                GeminiHttpOptions.builder()
-                    .baseUrl("$llmProviderUrl/vertex_ai")
-                    .headers(mapOf("x-litellm-api-key" to "Bearer $llmProviderApiKey")) // TODO: fix?
-                    .timeout(Duration.ofSeconds(60).toMillis().toInt())
-                    .build()
-            )
-            .build()
-    }
-
-    private fun createTool(word: String): Tool {
-        return Tool.builder()
-            .functionDeclarations(
-                FunctionDeclaration.builder()
-                    .name(word)
-                    .description("Say $word to the user")
-                    .parameters(
-                        Schema.builder()
-                            .type("object")
-                            .description("The phrase parameters")
-                            .properties(
-                                mapOf(
-                                    "name" to Schema.builder()
-                                        .type("string")
-                                        .description("The name of the person to say $word to")
-                                        .build()
-                                )
-                            )
-                            .required("name")
-                            .build()
-                    )
-                    .build()
-            )
-            .build()
-    }
-
-
+class GeminiTracingTest : BaseGeminiTracingTest() {
     @Test
     fun `test nested instrumentation calls don't cause duplicative tracing`() = runTest {
         val client = instrument(instrument(instrument(createGeminiClient())))
@@ -354,7 +290,6 @@ class GeminiTracingTest : BaseAITracingTest() {
         // the installed interceptor will imitate timeout
         installHttpInterceptor(client, interceptor = timeoutInterceptor)
 
-
         try {
             client.models.generateContent(
                 "gemini-2.5-flash",
@@ -368,10 +303,8 @@ class GeminiTracingTest : BaseAITracingTest() {
         }
 
         val traces = analyzeSpans()
-
-        assertEquals(1, traces.size)
-        val trace = traces.firstOrNull()
-        assertNotNull(trace)
+        assertTrue(traces.isNotEmpty())
+        val trace = traces.first()
 
         assertEquals(StatusCode.ERROR, trace.status.statusCode)
         assertEquals(

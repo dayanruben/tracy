@@ -20,7 +20,6 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.StatusCode
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.TestInstance
-import java.io.InputStream
 import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -229,11 +228,6 @@ abstract class BaseOpenAITracingTest : BaseAITracingTest() {
             }
             return id
         }
-
-    protected fun readResource(filepath: String): InputStream {
-        return javaClass.classLoader.getResourceAsStream(filepath)
-            ?: error("File not found")
-    }
 
     /**
      * Assumes that the provided URL points to the expected OpenAI production endpoint.

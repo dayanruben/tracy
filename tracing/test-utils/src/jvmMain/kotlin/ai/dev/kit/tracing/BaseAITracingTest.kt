@@ -5,6 +5,7 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.sdk.trace.data.SpanData
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.provider.Arguments
+import java.io.InputStream
 import java.util.stream.Stream
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,6 +37,16 @@ abstract class BaseAITracingTest : BaseOpenTelemetryTracingTest() {
         span: SpanData,
         expected: List<MediaContentAttributeValues>
     ) {
+        // number of content parts should be equal to the expected one
+        val contentPartsCount = run {
+            val prefix = UploadableMediaContentAttributeKeys.KEY_NAME_PREFIX
+            val mediaContentTypeRegex = Regex("^$prefix\\.(\\d+)\\.type$")
+            span.attributes.asMap().keys.count { it.key.matches(mediaContentTypeRegex) }
+        }
+
+        assertEquals(expected.size, contentPartsCount,
+            "Media content attribute count does not match")
+
         for ((index, values) in expected.withIndex()) {
             val keys = UploadableMediaContentAttributeKeys.forIndex(index)
             val failMessage = "Media content attribute values do not match for index $index"
@@ -89,6 +100,11 @@ abstract class BaseAITracingTest : BaseOpenTelemetryTracingTest() {
             ),
             Arguments.of(MediaSource.Link(SAMPLE_PDF_FILE_URL))
         )
+    }
+
+    protected fun readResource(filepath: String): InputStream {
+        return javaClass.classLoader.getResourceAsStream(filepath)
+            ?: error("File '$filepath' not found")
     }
 
     companion object {
