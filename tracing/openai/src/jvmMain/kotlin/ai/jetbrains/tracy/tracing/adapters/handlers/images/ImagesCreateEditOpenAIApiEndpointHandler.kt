@@ -1,10 +1,10 @@
 package ai.jetbrains.tracy.tracing.adapters.handlers.images
 
+import ai.dev.kit.adapters.handlers.EndpointApiHandler
 import ai.dev.kit.adapters.media.MediaContent
 import ai.dev.kit.adapters.media.MediaContentExtractor
 import ai.dev.kit.adapters.media.MediaContentPart
 import ai.dev.kit.adapters.media.Resource
-import ai.jetbrains.tracy.tracing.adapters.handlers.OpenAIApiEndpointHandler
 import ai.dev.kit.http.protocol.Request
 import ai.dev.kit.http.protocol.Response
 import ai.dev.kit.http.protocol.asFormData
@@ -22,7 +22,7 @@ import java.util.*
  * See [Image Edit API](https://platform.openai.com/docs/api-reference/images/createEdit)
  */
 internal class ImagesCreateEditOpenAIApiEndpointHandler(
-    private val extractor: MediaContentExtractor) : OpenAIApiEndpointHandler {
+    private val extractor: MediaContentExtractor) : EndpointApiHandler {
     override fun handleRequestAttributes(span: Span, request: Request) {
         val body = request.body.asFormData() ?: return
 

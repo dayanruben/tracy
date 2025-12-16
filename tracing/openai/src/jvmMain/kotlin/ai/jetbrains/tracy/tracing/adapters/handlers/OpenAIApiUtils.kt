@@ -15,17 +15,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Base interface for OpenAI API handlers
- *
- * TODO: move to core
- */
-internal interface OpenAIApiEndpointHandler {
-    fun handleRequestAttributes(span: Span, request: Request)
-    fun handleResponseAttributes(span: Span, response: Response)
-    fun handleStreaming(span: Span, events: String)
-}
-
-/**
  * Common utilities for OpenAI API handling
  */
 internal object OpenAIApiUtils {

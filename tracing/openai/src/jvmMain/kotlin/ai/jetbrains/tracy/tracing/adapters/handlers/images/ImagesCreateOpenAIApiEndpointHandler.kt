@@ -1,7 +1,7 @@
 package ai.jetbrains.tracy.tracing.adapters.handlers.images
 
+import ai.dev.kit.adapters.handlers.EndpointApiHandler
 import ai.dev.kit.adapters.media.MediaContentExtractor
-import ai.jetbrains.tracy.tracing.adapters.handlers.OpenAIApiEndpointHandler
 import ai.jetbrains.tracy.tracing.adapters.handlers.asString
 import ai.dev.kit.http.protocol.Request
 import ai.dev.kit.http.protocol.Response
@@ -18,7 +18,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * See [Image Generation API](https://platform.openai.com/docs/api-reference/images/create)
  */
 internal class ImagesCreateOpenAIApiEndpointHandler(
-    private val extractor: MediaContentExtractor) : OpenAIApiEndpointHandler {
+    private val extractor: MediaContentExtractor) : EndpointApiHandler {
     override fun handleRequestAttributes(span: Span, request: Request) {
         val body = request.body.asJson()?.jsonObject ?: return
 

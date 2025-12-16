@@ -5,9 +5,9 @@ import ai.dev.kit.http.protocol.Response
 import io.opentelemetry.api.trace.Span
 
 /**
- * Base interface for Gemini API handlers
+ * Interface for endpoint API handlers used within adapters
  */
-internal interface GeminiApiHandler {
+interface EndpointApiHandler {
     fun handleRequestAttributes(span: Span, request: Request)
     fun handleResponseAttributes(span: Span, response: Response)
     fun handleStreaming(span: Span, events: String)
