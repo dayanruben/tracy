@@ -1,9 +1,8 @@
-package ai.dev.kit.tracing.fluent.providers
+package ai.jetbrains.tracy.anthropic
 
 import ai.dev.kit.getFieldValue
 import ai.dev.kit.setFieldValue
 import ai.dev.kit.tracing.BaseAITracingTest
-import ai.dev.kit.tracing.fluent.providers.BaseAnthropicTracingTest.Companion.ANTHROPIC_API_URL
 import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.core.JsonObject
@@ -12,6 +11,7 @@ import com.anthropic.models.messages.Message
 import com.anthropic.models.messages.Model
 import com.anthropic.models.messages.Tool
 import okhttp3.Interceptor
+import okhttp3.OkHttpClient
 import org.junit.jupiter.api.TestInstance
 import java.time.Duration
 
@@ -79,7 +79,7 @@ abstract class BaseAnthropicTracingTest : BaseAITracingTest() {
             getFieldValue(originalHttpClient, "httpClient")
         }
 
-        val okHttpClient = getFieldValue(okHttpHolder, "okHttpClient") as okhttp3.OkHttpClient
+        val okHttpClient = getFieldValue(okHttpHolder, "okHttpClient") as OkHttpClient
         val modifiedHttpClient = okHttpClient.newBuilder().addInterceptor(interceptor).build()
 
         setFieldValue(okHttpHolder, "okHttpClient", modifiedHttpClient)

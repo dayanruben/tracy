@@ -1,5 +1,6 @@
-package ai.dev.kit.adapters
+package ai.jetbrains.tracy.anthropic.adapters
 
+import ai.dev.kit.adapters.LLMTracingAdapter
 import ai.dev.kit.adapters.media.MediaContent
 import ai.dev.kit.adapters.media.MediaContentExtractor
 import ai.dev.kit.adapters.media.MediaContentPart

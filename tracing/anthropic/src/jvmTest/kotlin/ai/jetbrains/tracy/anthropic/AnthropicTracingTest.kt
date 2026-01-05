@@ -1,8 +1,8 @@
-package ai.dev.kit.tracing.fluent.providers
+package ai.jetbrains.tracy.anthropic
 
-import ai.dev.kit.clients.instrument
 import ai.dev.kit.tracing.TracingManager
 import ai.dev.kit.tracing.policy.ContentCapturePolicy
+import ai.jetbrains.tracy.anthropic.clients.instrument
 import com.anthropic.core.JsonString
 import com.anthropic.core.JsonValue
 import com.anthropic.helpers.MessageAccumulator
