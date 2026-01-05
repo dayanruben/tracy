@@ -1,7 +1,12 @@
-package ai.dev.kit.eval.providers.langfuse
+package ai.jetbrains.tracy.eval.providers.langfuse
 
-import ai.dev.kit.eval.utils.*
 import ai.jetbrains.tracy.core.exporters.otlp.LangfuseExporterConfig
+import ai.jetbrains.tracy.eval.utils.AIInput
+import ai.jetbrains.tracy.eval.utils.AIOutput
+import ai.jetbrains.tracy.eval.utils.BaseEvaluationTest
+import ai.jetbrains.tracy.eval.utils.EvalResult
+import ai.jetbrains.tracy.eval.utils.GroundTruth
+import ai.jetbrains.tracy.eval.utils.createRandomRunNameAdjectiveNounNumber
 
 /**
  * A base abstract class for conducting evaluation tests on AI functionality.

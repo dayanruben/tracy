@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.utils
+package ai.jetbrains.tracy.eval.utils
 
 /**
  * A base abstract class for running evaluation tests without external logging or tracking.

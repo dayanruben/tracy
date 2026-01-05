@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.providers.langfuse
+package ai.jetbrains.tracy.eval.providers.langfuse
 
 import io.ktor.http.*
 import kotlinx.serialization.json.JsonArray

@@ -1,6 +1,4 @@
-package ai.dev.kit.eval.utils
-
-import ai.dev.kit.eval.providers.dataclasses.RunStatus
+package ai.jetbrains.tracy.eval.utils
 
 data class RunTag(
     val color: String

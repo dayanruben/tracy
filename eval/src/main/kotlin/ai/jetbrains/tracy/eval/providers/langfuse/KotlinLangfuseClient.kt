@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.providers.langfuse
+package ai.jetbrains.tracy.eval.providers.langfuse
 
 import ai.jetbrains.tracy.core.exporters.otlp.LangfuseExporterConfig
 import io.ktor.client.*

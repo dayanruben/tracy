@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.utils
+package ai.jetbrains.tracy.eval.utils
 
 interface Evaluator<GroundTruthT: GroundTruth, AIOutputT: AIOutput, EvalResultT: EvalResult> {
     fun evaluate(groundTruth: GroundTruthT, output: AIOutputT): EvalResultT

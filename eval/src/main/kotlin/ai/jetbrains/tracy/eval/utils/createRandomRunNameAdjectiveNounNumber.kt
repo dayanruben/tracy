@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.utils
+package ai.jetbrains.tracy.eval.utils
 
 private val ADJECTIVES = listOf(
     "clever", "delightful", "enthusiastic", "inspiring", "passionate", "unique",

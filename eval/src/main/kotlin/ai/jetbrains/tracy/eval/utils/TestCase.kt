@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.utils
+package ai.jetbrains.tracy.eval.utils
 
 data class TestCase<AIInputT : AIInput, GroundTruthT : GroundTruth>(
     val name: String,

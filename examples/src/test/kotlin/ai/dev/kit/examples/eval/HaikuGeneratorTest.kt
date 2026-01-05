@@ -1,9 +1,17 @@
 package ai.dev.kit.examples.eval
 
-import ai.dev.kit.eval.providers.langfuse.LangfuseEvaluationTest
-import ai.dev.kit.eval.utils.*
 import ai.jetbrains.tracy.core.exporters.otlp.LangfuseExporterConfig
 import ai.jetbrains.tracy.core.fluent.KotlinFlowTrace
+import ai.jetbrains.tracy.eval.providers.langfuse.LangfuseEvaluationTest
+import ai.jetbrains.tracy.eval.utils.AggregateScore
+import ai.jetbrains.tracy.eval.utils.ConsoleEvaluationTest
+import ai.jetbrains.tracy.eval.utils.Evaluator
+import ai.jetbrains.tracy.eval.utils.Generator
+import ai.jetbrains.tracy.eval.utils.MultiScoreEvalResult
+import ai.jetbrains.tracy.eval.utils.NoGroundTruth
+import ai.jetbrains.tracy.eval.utils.SingleScoreEvalResult
+import ai.jetbrains.tracy.eval.utils.TestCase
+import ai.jetbrains.tracy.eval.utils.averageMultiScoreEvalResults
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
 import com.openai.models.chat.completions.ChatCompletionCreateParams

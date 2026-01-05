@@ -1,10 +1,10 @@
-package ai.dev.kit.eval.utils
+package ai.jetbrains.tracy.eval.utils
 
-import ai.dev.kit.eval.providers.dataclasses.RunStatus
 import ai.jetbrains.tracy.core.tracing.TracingManager
 import ai.jetbrains.tracy.core.fluent.FluentSpanAttributes
 import ai.jetbrains.tracy.core.fluent.TracingSessionProvider.currentSessionId
 import ai.jetbrains.tracy.core.fluent.withSessionIdBlocking
+import ai.jetbrains.tracy.eval.providers.langfuse.LangfuseEvaluationClient
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.extension.kotlin.asContextElement
@@ -29,7 +29,7 @@ import org.junit.jupiter.api.*
  * @param tags A list of tags associated with each run, used for metadata. The size of this list must match `numberOfRuns`.
  * @param loggingClient An implementation of the [LoggingClient] interface
  * that handles logging of evaluation workflows or null for no logging.
- *  Current implementations include clients: [ai.dev.kit.eval.providers.langfuse.LangfuseEvaluationClient].
+ *  Current implementations include clients: [LangfuseEvaluationClient].
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class BaseEvaluationTest<

@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.providers.dataclasses
+package ai.jetbrains.tracy.eval.utils
 
 enum class RunStatus {
     RUNNING,

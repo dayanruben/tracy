@@ -1,9 +1,9 @@
 package ai.dev.kit.examples.eval
 
-import ai.dev.kit.eval.utils.AIInput
-import ai.dev.kit.eval.utils.AIOutput
-import ai.dev.kit.eval.utils.Generator
 import ai.jetbrains.tracy.core.fluent.KotlinFlowTrace
+import ai.jetbrains.tracy.eval.utils.AIInput
+import ai.jetbrains.tracy.eval.utils.AIOutput
+import ai.jetbrains.tracy.eval.utils.Generator
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
 import com.openai.models.chat.completions.ChatCompletionCreateParams

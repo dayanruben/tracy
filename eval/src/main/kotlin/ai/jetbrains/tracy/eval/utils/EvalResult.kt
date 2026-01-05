@@ -1,4 +1,4 @@
-package ai.dev.kit.eval.utils
+package ai.jetbrains.tracy.eval.utils
 
 import mu.KotlinLogging
 import org.jetbrains.kotlinx.dataframe.DataFrame
