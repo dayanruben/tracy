@@ -1,4 +1,4 @@
-package ai.jetbrains.tracy.tracing.adapters.handlers
+package ai.jetbrains.tracy.openai.adapters.handlers
 
 import ai.dev.kit.http.protocol.Request
 import ai.dev.kit.http.protocol.Response

@@ -1,4 +1,4 @@
-package ai.jetbrains.tracy.tracing.clients
+package ai.jetbrains.tracy.openai.clients
 
 import ai.dev.kit.tracing.BaseOpenTelemetryTracingTest
 import ai.dev.kit.tracing.TracingManager

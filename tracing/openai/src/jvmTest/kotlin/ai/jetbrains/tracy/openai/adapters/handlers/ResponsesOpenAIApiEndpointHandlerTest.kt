@@ -1,12 +1,12 @@
-package ai.jetbrains.tracy.tracing.adapters.handlers
+package ai.jetbrains.tracy.openai.adapters.handlers
 
-import ai.jetbrains.tracy.tracing.clients.instrument
+import ai.jetbrains.tracy.openai.clients.instrument
 import ai.dev.kit.tracing.MediaSource
 import ai.dev.kit.tracing.TracingManager
 import ai.dev.kit.tracing.toDataUrl
 import ai.dev.kit.tracing.toMediaContentAttributeValues
-import ai.jetbrains.tracy.tracing.adapters.BaseOpenAITracingTest
-import ai.jetbrains.tracy.tracing.adapters.containsToolCall
+import ai.jetbrains.tracy.openai.adapters.BaseOpenAITracingTest
+import ai.jetbrains.tracy.openai.adapters.containsToolCall
 import ai.dev.kit.tracing.policy.ContentCapturePolicy
 import com.openai.core.JsonValue
 import com.openai.models.ChatModel
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.time.Duration
-import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.minutes
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals

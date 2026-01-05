@@ -1,11 +1,11 @@
-package ai.jetbrains.tracy.tracing.adapters.handlers
+package ai.jetbrains.tracy.openai.adapters.handlers
 
 import ai.dev.kit.tracing.*
 import ai.dev.kit.tracing.policy.ContentCapturePolicy
-import ai.jetbrains.tracy.tracing.adapters.BaseOpenAITracingTest
-import ai.jetbrains.tracy.tracing.adapters.containsToolCall
-import ai.jetbrains.tracy.tracing.adapters.name
-import ai.jetbrains.tracy.tracing.clients.instrument
+import ai.jetbrains.tracy.openai.adapters.BaseOpenAITracingTest
+import ai.jetbrains.tracy.openai.adapters.containsToolCall
+import ai.jetbrains.tracy.openai.adapters.name
+import ai.jetbrains.tracy.openai.clients.instrument
 import com.openai.core.JsonValue
 import com.openai.models.ChatModel
 import com.openai.models.chat.completions.*

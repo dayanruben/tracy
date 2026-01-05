@@ -1,10 +1,12 @@
 package ai.dev.kit.examples.clients
 
+import ai.dev.kit.OpenTelemetryOkHttpInterceptor
 import ai.dev.kit.exporters.ConsoleExporterConfig
 import ai.dev.kit.instrument
 import ai.dev.kit.tracing.TracingManager
 import ai.dev.kit.tracing.configureOpenTelemetrySdk
-import ai.jetbrains.tracy.tracing.adapters.OpenAILLMTracingAdapter
+import ai.jetbrains.tracy.openai.adapters.OpenAILLMTracingAdapter
+import ai.jetbrains.tracy.anthropic.adapters.AnthropicLLMTracingAdapter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -15,11 +17,11 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * Example of integrating a OkHttp Client [OkHttpClient] with tracing for OpenAI API requests.
+ * Example of [OkHttpClient] instrumentation that enables OpenAI API requests tracing.
  *
  * This example demonstrates how to:
  * - Initialize tracing using [TracingManager] with [ConsoleExporterConfig].
- * - Instrument a [OkHttpClient] using [OpenAIOpenTelemetryOkHttpInterceptor] to automatically capture trace data.
+ * - Instrument a [OkHttpClient] using [OpenTelemetryOkHttpInterceptor] to automatically capture trace data.
  * - Perform an OpenAI API request with trace data automatically captured.
  * - Call [TracingManager.flushTraces] before exiting to ensure all trace data is exported.
  *
@@ -29,7 +31,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * Run the example. Span will appear in the console output.
  *
  * Note: The AI Dev Kit provides multiple provider-specific tracing loggers,
- * including [OpenAIOpenTelemetryOkHttpInterceptor], [OpenTelemetryGeminiLogger], and [OpenTelemetryAnthropicLogger].
+ * including [OpenAILLMTracingAdapter], [OpenTelemetryGeminiLogger], and [AnthropicLLMTracingAdapter].
  * Choose the adapter that matches the provider your client uses.
  */
 fun main() {

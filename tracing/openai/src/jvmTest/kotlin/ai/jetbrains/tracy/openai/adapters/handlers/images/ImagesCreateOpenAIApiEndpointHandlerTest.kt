@@ -1,8 +1,8 @@
-package ai.jetbrains.tracy.tracing.adapters.handlers.images
+package ai.jetbrains.tracy.openai.adapters.handlers.images
 
 import ai.dev.kit.tracing.MediaContentAttributeValues
-import ai.jetbrains.tracy.tracing.clients.instrument
-import ai.jetbrains.tracy.tracing.adapters.BaseOpenAITracingTest
+import ai.jetbrains.tracy.openai.clients.instrument
+import ai.jetbrains.tracy.openai.adapters.BaseOpenAITracingTest
 import ai.dev.kit.tracing.TracingManager
 import ai.dev.kit.tracing.policy.ContentCapturePolicy
 import com.openai.models.images.ImageGenerateParams
@@ -39,10 +39,10 @@ class ImagesCreateOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         )
 
         val prompt = "generate an image of dog and cat sitting next to each other"
-        val model = ImageModel.Companion.DALL_E_2
+        val model = ImageModel.DALL_E_2
         val size = ImageGenerateParams.Size._256X256
 
-        val params = ImageGenerateParams.Companion.builder()
+        val params = ImageGenerateParams.builder()
             .prompt(prompt)
             .responseFormat(responseFormat)
             .model(model)
@@ -99,11 +99,11 @@ class ImagesCreateOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         )
 
         val prompt = "generate an image of a cute cat"
-        val model = ImageModel.Companion.GPT_IMAGE_1
+        val model = ImageModel.GPT_IMAGE_1
         val size = ImageGenerateParams.Size._1024X1024
         val format = ImageGenerateParams.OutputFormat.JPEG
 
-        val params = ImageGenerateParams.Companion.builder()
+        val params = ImageGenerateParams.builder()
             .prompt(prompt)
             .model(model)
             .outputFormat(format)
@@ -148,10 +148,10 @@ class ImagesCreateOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         )
 
         val prompt = "generate an image of a cute cat"
-        val model = ImageModel.Companion.DALL_E_2
+        val model = ImageModel.DALL_E_2
         val size = ImageGenerateParams.Size._256X256
 
-        val params = ImageGenerateParams.Companion.builder()
+        val params = ImageGenerateParams.builder()
             .prompt(prompt)
             .model(model)
             .size(size)
@@ -193,9 +193,9 @@ class ImagesCreateOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         )
 
         val prompt = "generate an image of a cute cat"
-        val model = ImageModel.Companion.DALL_E_2
+        val model = ImageModel.DALL_E_2
 
-        val params = ImageGenerateParams.Companion.builder()
+        val params = ImageGenerateParams.builder()
             .prompt(prompt)
             .model(model)
             .size(ImageGenerateParams.Size._256X256)
@@ -228,11 +228,11 @@ class ImagesCreateOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         )
 
         val prompt = "generate an image where a knife cuts a glass watermelon"
-        val model = ImageModel.Companion.GPT_IMAGE_1
+        val model = ImageModel.GPT_IMAGE_1
         val size = ImageGenerateParams.Size._1024X1024
         val partialImagesCount = 2
 
-        val params = ImageGenerateParams.Companion.builder()
+        val params = ImageGenerateParams.builder()
             .prompt(prompt)
             .model(model)
             .partialImages(partialImagesCount.toLong())

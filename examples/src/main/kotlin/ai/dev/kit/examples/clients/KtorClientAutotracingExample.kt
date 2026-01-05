@@ -1,8 +1,8 @@
 package ai.dev.kit.examples.clients
 
-import ai.dev.kit.adapters.AnthropicLLMTracingAdapter
+import ai.jetbrains.tracy.anthropic.adapters.AnthropicLLMTracingAdapter
 import ai.dev.kit.adapters.GeminiLLMTracingAdapter
-import ai.jetbrains.tracy.tracing.adapters.OpenAILLMTracingAdapter
+import ai.jetbrains.tracy.openai.adapters.OpenAILLMTracingAdapter
 import ai.dev.kit.exporters.ConsoleExporterConfig
 import ai.dev.kit.instrument
 import ai.dev.kit.tracing.TracingManager

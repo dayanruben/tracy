@@ -1,11 +1,11 @@
-package ai.jetbrains.tracy.tracing.adapters.handlers.images
+package ai.jetbrains.tracy.openai.adapters.handlers.images
 
 import ai.dev.kit.tracing.MediaContentAttributeValues
 import ai.dev.kit.tracing.MediaSource
 import ai.dev.kit.tracing.TracingManager
 import ai.dev.kit.tracing.toMediaContentAttributeValues
-import ai.jetbrains.tracy.tracing.clients.instrument
-import ai.jetbrains.tracy.tracing.adapters.BaseOpenAITracingTest
+import ai.jetbrains.tracy.openai.clients.instrument
+import ai.jetbrains.tracy.openai.adapters.BaseOpenAITracingTest
 import ai.dev.kit.tracing.policy.ContentCapturePolicy
 import com.openai.core.MultipartField
 import com.openai.models.images.ImageEditParams
@@ -40,7 +40,7 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         val prompt = "Remove cat from the image"
         val image = MediaSource.File("cat-n-dog-2-alpha.png", "image/png")
 
-        val params = ImageEditParams.Companion.builder()
+        val params = ImageEditParams.builder()
             .body(
                 ImageEditParams.Body.builder()
                     .prompt(prompt)
@@ -88,7 +88,7 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         val alohaImage = MediaSource.File("aloha.png", "image/png")
         val alohaMask = MediaSource.File("aloha-mask.png", "image/png")
 
-        val editParams = ImageEditParams.Companion.builder()
+        val editParams = ImageEditParams.builder()
             .responseFormat(ImageEditParams.ResponseFormat.URL)
             .image(
                 image(alohaImage.filepath, alohaImage.contentType)
@@ -112,16 +112,16 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
 
         // check mask properties attached
         Assertions.assertFalse(trace.attributes[AttributeKey.stringKey("gen_ai.request.mask.content")].isNullOrEmpty())
-        Assertions.assertEquals(
+        assertEquals(
             alohaMask.contentType,
             trace.attributes[AttributeKey.stringKey("gen_ai.request.mask.contentType")]
         )
-        Assertions.assertEquals(
+        assertEquals(
             alohaMask.filepath,
             trace.attributes[AttributeKey.stringKey("gen_ai.request.mask.filename")]
         )
 
-        Assertions.assertEquals("1", trace.attributes[AttributeKey.stringKey("gen_ai.request.n")])
+        assertEquals("1", trace.attributes[AttributeKey.stringKey("gen_ai.request.n")])
 
         val expectedImage = MediaContentAttributeValues.Url(
             field = "output",
@@ -146,11 +146,11 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
             )
         )
 
-        val model = ImageModel.Companion.GPT_IMAGE_1
+        val model = ImageModel.GPT_IMAGE_1
         val prompt = "Add a 2nd cat to the image"
         val image = MediaSource.File("cat-n-dog-2.png", "image/png")
 
-        val params = ImageEditParams.Companion.builder()
+        val params = ImageEditParams.builder()
             .body(
                 ImageEditParams.Body.builder()
                     .prompt(prompt)
@@ -193,7 +193,7 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
             )
         )
 
-        val model = ImageModel.Companion.GPT_IMAGE_1
+        val model = ImageModel.GPT_IMAGE_1
         val prompt = "Merge two images. I want to see 2 cats and 2 dogs!"
         val contentType = "image/png"
 
@@ -201,7 +201,7 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         val image2 = MediaSource.File("cat-n-dog-2.png", contentType)
         val images = listOf(image1, image2)
 
-        val params = ImageEditParams.Companion.builder()
+        val params = ImageEditParams.builder()
             .body(
                 ImageEditParams.Body.builder()
                     .prompt(prompt)
@@ -245,7 +245,7 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
             )
         )
 
-        val model = ImageModel.Companion.GPT_IMAGE_1
+        val model = ImageModel.GPT_IMAGE_1
         val prompt = "Merge two images!"
         val contentType = "image/png"
         val partialImagesCount = 2
@@ -255,7 +255,7 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         val image2 = MediaSource.File("cat-n-dog-2.png", contentType)
         val images = listOf(image1, image2)
 
-        val params = ImageEditParams.Companion.builder()
+        val params = ImageEditParams.builder()
             .body(
                 ImageEditParams.Body.builder()
                     .prompt(prompt)
@@ -277,11 +277,11 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         validateBasicImageTracing(prompt, model)
         val trace = analyzeSpans().first()
 
-        Assertions.assertEquals(
+        assertEquals(
             size.asString(),
             trace.attributes[AttributeKey.stringKey("gen_ai.request.size")]
         )
-        Assertions.assertEquals(
+        assertEquals(
             partialImagesCount.toString(),
             trace.attributes[AttributeKey.stringKey("gen_ai.request.partial_images")]
         )
@@ -373,7 +373,7 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         val image = readResource(filepath)
 
         return MultipartField.builder<ImageEditParams.Image>()
-            .value(ImageEditParams.Image.Companion.ofInputStream(image))
+            .value(ImageEditParams.Image.ofInputStream(image))
             .contentType(contentType)
             .filename(filepath)
             .build()
@@ -398,8 +398,8 @@ class ImagesCreateEditOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
         Assertions.assertEquals(1, traces.size)
         val trace = traces.first()
 
-        Assertions.assertEquals(prompt, trace.attributes[AttributeKey.stringKey("gen_ai.prompt.0.content")])
-        Assertions.assertEquals(
+        assertEquals(prompt, trace.attributes[AttributeKey.stringKey("gen_ai.prompt.0.content")])
+        assertEquals(
             true,
             trace.attributes[AttributeKey.stringKey("gen_ai.request.model")]?.startsWith(model.asString())
         )

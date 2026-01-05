@@ -1,7 +1,7 @@
-package ai.jetbrains.tracy.tracing.clients
+package ai.jetbrains.tracy.openai.clients
 
 import ai.dev.kit.OpenTelemetryOkHttpInterceptor
-import ai.jetbrains.tracy.tracing.adapters.OpenAILLMTracingAdapter
+import ai.jetbrains.tracy.openai.adapters.OpenAILLMTracingAdapter
 import ai.dev.kit.patchOpenAICompatibleClient
 import com.openai.client.OpenAIClient
 

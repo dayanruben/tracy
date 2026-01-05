@@ -1,4 +1,4 @@
-package ai.jetbrains.tracy.tracing.adapters.handlers.images
+package ai.jetbrains.tracy.openai.adapters.handlers.images
 
 import ai.dev.kit.adapters.handlers.EndpointApiHandler
 import ai.dev.kit.adapters.media.MediaContent

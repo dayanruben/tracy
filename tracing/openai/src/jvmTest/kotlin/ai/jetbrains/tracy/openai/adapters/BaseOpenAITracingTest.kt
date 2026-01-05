@@ -1,4 +1,4 @@
-package ai.jetbrains.tracy.tracing.adapters
+package ai.jetbrains.tracy.openai.adapters
 
 import ai.dev.kit.tracing.BaseAITracingTest
 import com.openai.client.OpenAIClient

@@ -1,10 +1,10 @@
-package ai.jetbrains.tracy.tracing.adapters.handlers.images
+package ai.jetbrains.tracy.openai.adapters.handlers.images
 
 import ai.dev.kit.adapters.media.MediaContent
 import ai.dev.kit.adapters.media.MediaContentExtractor
 import ai.dev.kit.adapters.media.MediaContentPart
 import ai.dev.kit.adapters.media.Resource
-import ai.jetbrains.tracy.tracing.adapters.handlers.asString
+import ai.jetbrains.tracy.openai.adapters.handlers.asString
 import ai.dev.kit.http.protocol.Response
 import ai.dev.kit.http.protocol.asJson
 import ai.dev.kit.tracing.policy.ContentKind

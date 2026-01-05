@@ -1,9 +1,9 @@
 package ai.dev.kit.examples.clients
 
-import ai.dev.kit.clients.instrument
 import ai.dev.kit.exporters.ConsoleExporterConfig
 import ai.dev.kit.tracing.TracingManager
 import ai.dev.kit.tracing.configureOpenTelemetrySdk
+import ai.jetbrains.tracy.anthropic.clients.instrument
 import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.models.messages.MessageCreateParams

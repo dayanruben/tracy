@@ -1,12 +1,12 @@
-package ai.jetbrains.tracy.tracing.adapters
+package ai.jetbrains.tracy.openai.adapters
 
 import ai.dev.kit.adapters.LLMTracingAdapter
 import ai.dev.kit.adapters.handlers.EndpointApiHandler
-import ai.jetbrains.tracy.tracing.adapters.handlers.ChatCompletionsOpenAIApiEndpointHandler
-import ai.jetbrains.tracy.tracing.adapters.handlers.images.ImagesCreateEditOpenAIApiEndpointHandler
-import ai.jetbrains.tracy.tracing.adapters.handlers.images.ImagesCreateOpenAIApiEndpointHandler
-import ai.jetbrains.tracy.tracing.adapters.handlers.OpenAIApiUtils
-import ai.jetbrains.tracy.tracing.adapters.handlers.ResponsesOpenAIApiEndpointHandler
+import ai.jetbrains.tracy.openai.adapters.handlers.ChatCompletionsOpenAIApiEndpointHandler
+import ai.jetbrains.tracy.openai.adapters.handlers.images.ImagesCreateEditOpenAIApiEndpointHandler
+import ai.jetbrains.tracy.openai.adapters.handlers.images.ImagesCreateOpenAIApiEndpointHandler
+import ai.jetbrains.tracy.openai.adapters.handlers.OpenAIApiUtils
+import ai.jetbrains.tracy.openai.adapters.handlers.ResponsesOpenAIApiEndpointHandler
 import ai.dev.kit.adapters.media.MediaContentExtractorImpl
 import ai.dev.kit.http.protocol.Request
 import ai.dev.kit.http.protocol.RequestBody
