@@ -25,7 +25,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 
-class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
+class TracyGeneratorExtension : IrGenerationExtension {
     private val traceAnnotationFqName = FqName("ai.jetbrains.tracy.core.fluent.KotlinFlowTrace")
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
@@ -162,6 +162,6 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
 class TracyPluginRegistrar : CompilerPluginRegistrar() {
     override val supportsK2: Boolean = true
     override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
-        IrGenerationExtension.registerExtension(AiDevKitTraceGeneratorExtension())
+        IrGenerationExtension.registerExtension(TracyGeneratorExtension())
     }
 }

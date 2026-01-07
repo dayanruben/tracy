@@ -1,31 +1,33 @@
 package ai.jetbrains.tracy.compiler.plugin
 
-import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.jetbrains.kotlin.backend.jvm.ir.isInlineParameter
-import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
+import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
+import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.name.CallableId
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
-class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
+class TracyGeneratorExtension : IrGenerationExtension {
     private val traceAnnotationFqName = FqName("ai.jetbrains.tracy.core.fluent.KotlinFlowTrace")
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
@@ -36,7 +38,6 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
         val withTraceSuspendedSymbol = pluginContext.referenceFunctions(
             CallableId(FqName("ai.jetbrains.tracy.core.fluent.processor"), Name.identifier("withTraceSuspended"))
         ).findMultiplatformSymbol()
-
         moduleFragment.accept(object : IrElementTransformerVoid() {
             override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
                 // Try to get this function's own @KotlinFlowTrace annotation
@@ -73,6 +74,7 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
             ?: error("`Expect/actual declaration for `withTrace` not found. Found: $this")
     }
 
+    @Suppress()
     /**
      * Wraps the original function body in a call to `withTrace` or `withTraceSuspended`,
      * passing the annotation, a function reference, arguments, and a lambda with the original body.
@@ -88,36 +90,35 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
         val builder = DeclarationIrBuilder(pluginContext, function.symbol)
 
         val functionRefType = pluginContext.irBuiltIns
-            .functionN(function.valueParameters.size)
-            .typeWith(function.valueParameters.map { it.type } + function.returnType)
+            .functionN(function.parameters.size)
+            .typeWith(function.parameters.map { it.type } + function.returnType)
 
         // Reference to the original function
-        val functionReference = builder.irFunctionReference(
+        val functionReference: IrFunctionReference = IrFunctionReferenceImpl(
+            startOffset = builder.startOffset,
+            endOffset = builder.endOffset,
             type = functionRefType,
-            symbol = function.symbol
-        ).apply {
+            symbol = function.symbol,
+            typeArgumentsCount = function.typeParameters.size
+        ).also { ref ->
             function.typeParameters.forEachIndexed { index, typeParameter ->
-                putTypeArgument(index, typeParameter.symbol.defaultType)
-            }
-            function.dispatchReceiverParameter?.let {
-                dispatchReceiver = builder.irGet(it)
-            }
-            function.extensionReceiverParameter?.let {
-                extensionReceiver = builder.irGet(it)
+                ref.typeArguments[index] = typeParameter.symbol.defaultType
             }
         }
 
         // Function arguments
         val argsArray = builder.irVararg(
             pluginContext.irBuiltIns.anyNType,
-            function.valueParameters.map { param ->
-                if (function.isInline && param.isInlineParameter()) {
-                    // Inline lambdas can't be captured
-                    builder.irNull()
-                } else {
-                    builder.irGet(param.type, param.symbol)
+            function.parameters
+                .filter { it.kind == IrParameterKind.Regular || it.kind == IrParameterKind.Context }
+                .map { param ->
+                    if (function.isInline && param.isInlineParameter()) {
+                        // Inline lambdas can't be captured
+                        builder.irNull()
+                    } else {
+                        builder.irGet(param.type, param.symbol)
+                    }
                 }
-            }
         )
 
         // Lambda with function, which covered in withTrace logic
@@ -145,10 +146,10 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
         val withTraceCall = run {
             val symbol = if (function.isSuspend) withTraceSuspendedSymbol else withTraceSymbol
             builder.irCall(symbol).apply {
-                putValueArgument(0, functionReference)
-                putValueArgument(1, argsArray)
-                putValueArgument(2, traceAnnotation.deepCopyWithSymbols())
-                putValueArgument(3, lambdaExpression)
+                arguments[0] = functionReference
+                arguments[1] = argsArray
+                arguments[2] = traceAnnotation.deepCopyWithSymbols()
+                arguments[3] = lambdaExpression
             }
         }
 
@@ -162,6 +163,6 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
 class TracyPluginRegistrar : CompilerPluginRegistrar() {
     override val supportsK2: Boolean = true
     override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
-        IrGenerationExtension.registerExtension(AiDevKitTraceGeneratorExtension())
+        IrGenerationExtension.registerExtension(TracyGeneratorExtension())
     }
 }

@@ -14,13 +14,12 @@ _Note: console and file exporters may export in JSON or plain text formats._
 
 For backend configuration see:
 
-1. `ai.dev.kit.exporters.LangfuseKt#createLangfuseExporter`
-2. `ai.dev.kit.exporters.WeaveKt#createWeaveExporter`
+1. `ai.jetbrains.tracy.core.exporters.otlp.LangfuseExporterConfig`
+2. `ai.jetbrains.tracy.core.exporters.otlp.WeaveExporterConfig`
 
 LLM agent trace on Langfuse:
 
-![Example of an agent race on Langfuse](./assets/img/supported-backends/langfuse-trace-example.jpg)
-
+![Example of an agent trace on Langfuse](./assets/img/supported-backends/langfuse-trace-example.jpg)
 
 ## Tracing with Koog
 

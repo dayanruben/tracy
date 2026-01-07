@@ -111,7 +111,7 @@ To run a specific test class:
 For example:
 
 ```bash
-./gradlew :tracing:core:jvmTest --tests "ai.dev.kit.tracing.fluent.FluentTracingTest"
+./gradlew :tracing:core:jvmTest --tests "ai.jetbrains.tracy.core.fluent.FluentTracingTest"
 ```
 
 ### Skipping tests for specific LLM providers

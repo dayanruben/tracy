@@ -18,17 +18,15 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
-import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 
-class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
+class TracyGeneratorExtension : IrGenerationExtension {
     private val traceAnnotationFqName = FqName("ai.jetbrains.tracy.core.fluent.KotlinFlowTrace")
 
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
         val withTraceSymbol = pluginContext.referenceFunctions(
             CallableId(FqName("ai.jetbrains.tracy.core.fluent.processor"), Name.identifier("withTrace"))
@@ -60,14 +58,12 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
      * Recursively find the first matching @KotlinFlowTrace annotation
      * in any overridden function in the hierarchy.
      */
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     private fun IrSimpleFunction.findOverriddenAnnotationWithPropagation(): IrConstructorCall? =
         this.allOverridden(true).firstNotNullOfOrNull {
             it.annotations.findAnnotation(traceAnnotationFqName)
         }
 
     // Returns the actual function symbol if present ensuring proper resolution in multiplatform projects.
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     private fun Collection<IrSimpleFunctionSymbol>.findMultiplatformSymbol(): IrSimpleFunctionSymbol {
         return this.firstOrNull { !it.owner.isExpect }
             ?: error("`Expect/actual declaration for `withTrace` not found. Found: $this")
@@ -77,7 +73,6 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
      * Wraps the original function body in a call to `withTrace` or `withTraceSuspended`,
      * passing the annotation, a function reference, arguments, and a lambda with the original body.
      */
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
     private fun processFunction(
         traceAnnotation: IrConstructorCall,
         function: IrFunction,
@@ -162,6 +157,6 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
 class TracyPluginRegistrar : CompilerPluginRegistrar() {
     override val supportsK2: Boolean = true
     override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
-        IrGenerationExtension.registerExtension(AiDevKitTraceGeneratorExtension())
+        IrGenerationExtension.registerExtension(TracyGeneratorExtension())
     }
 }

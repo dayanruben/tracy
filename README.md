@@ -71,7 +71,7 @@ You can use it to:
 1. Add dependencies to the `build.gradle.kts` file:
     ```groovy
     plugins {
-        id 'ai.dev.kit.trace' version '0.0.24'
+        id 'ai.jetbrains.tracy' version '0.0.24'
     }
     
     dependencies {
@@ -304,10 +304,10 @@ example: [OpenAI Client Auto Tracing Example](examples/src/main/kotlin/ai/dev/ki
 
 ### Annotation-Based Tracing
 
-You can trace regular functions (not only client calls) using the [
-`@KotlinFlowTrace`](tracing/core/src/commonMain/kotlin/ai/dev/kit/tracing/fluent/KotlinFlowTrace.kt)
+You can trace regular functions (not only client calls)
+using the [`@KotlinFlowTrace`](tracing/core/src/commonMain/kotlin/ai/jetbrains/tracy/core/fluent/KotlinFlowTrace.kt)
 annotation.  
-Make sure to apply the `ai.dev.kit.trace` plugin in your build.  
+Make sure to apply the `ai.jetbrains.tracy` plugin in your build.  
 The Kotlin compiler plugin automatically instruments annotated functions, capturing execution details such as start and
 end time, duration, inputs, and outputs.
 
