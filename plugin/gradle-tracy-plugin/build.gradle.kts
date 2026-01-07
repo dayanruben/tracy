@@ -11,9 +11,9 @@ dependencies {
 
 gradlePlugin {
     plugins {
-        create("aiDevKitTracePlugin") {
-            id = "ai.dev.kit.trace"
-            implementationClass = "ai.dev.kit.trace.gradle.AiDevKitTraceGradlePlugin"
+        create("TracyPlugin") {
+            id = "ai.jetbrains.tracy"
+            implementationClass = "ai.jetbrains.tracy.gradle.plugin.TracyGradlePlugin"
         }
     }
 }

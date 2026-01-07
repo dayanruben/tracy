@@ -1,24 +1,24 @@
-package ai.dev.kit.trace.gradle
+package ai.jetbrains.tracy.gradle.plugin
 
-import ai.dev.kit.trace.gradle.AiDevKitTraceGradlePlugin.Companion.PATCH_GROUP_BOUNDARY
+import ai.jetbrains.tracy.gradle.plugin.TracyGradlePlugin.Companion.PATCH_GROUP_BOUNDARY
 import org.gradle.api.Project
 import org.gradle.api.logging.Logging
 import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.plugin.*
 
-class AiDevKitTraceGradlePlugin : KotlinCompilerPluginSupportPlugin {
+class TracyGradlePlugin : KotlinCompilerPluginSupportPlugin {
     companion object {
         /**
-         * Version of the AI Dev Kit plugin.
+         * Version of the Tracy Kotlin compiler plugin.
          *
-         * This value is automatically updated by the GitHub Action "Auto Version and Publish Release".
+         * This value is automatically updated on publishing.
          * Do not rename or remove `VERSION`, or the workflow will fail.
          */
         const val VERSION = "0.0.24"
         const val PATCH_GROUP_BOUNDARY = 20
     }
 
-    private val logger = Logging.getLogger(AiDevKitTraceGradlePlugin::class.java)
+    private val logger = Logging.getLogger(TracyGradlePlugin::class.java)
 
     override fun apply(target: Project) {
         super.apply(target)
@@ -29,14 +29,14 @@ class AiDevKitTraceGradlePlugin : KotlinCompilerPluginSupportPlugin {
         return enablePlugin?.toBoolean() != false
     }
 
-    override fun getCompilerPluginId(): String = "ai.dev.kit.trace.plugin"
+    override fun getCompilerPluginId(): String = "ai.jetbrains.tracy"
 
     override fun getPluginArtifact(): SubpluginArtifact {
         val kotlinVersion = getKotlinPluginVersion(logger)
         val pluginVersion = findPluginVersion(kotlinVersion)
         logger.debug("Resolved tracy-compiler-plugin-$pluginVersion for Kotlin compiler $kotlinVersion")
         return SubpluginArtifact(
-            groupId = "com.jetbrains",
+            groupId = "ai.jetbrains",
             artifactId = "tracy-compiler-plugin-$pluginVersion",
             version = VERSION
         )

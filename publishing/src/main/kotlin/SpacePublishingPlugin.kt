@@ -20,7 +20,7 @@ class SpacePublishingPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         project.plugins.apply("maven-publish")
 
-        project.group = "com.jetbrains"
+        project.group = "ai.jetbrains"
         project.version = VERSION
 
         project.extensions.configure<PublishingExtension>("publishing") {

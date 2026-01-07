@@ -159,7 +159,7 @@ class AiDevKitTraceGeneratorExtension : IrGenerationExtension {
 }
 
 @OptIn(ExperimentalCompilerApi::class)
-class AiDevKitTracePluginRegistrar : CompilerPluginRegistrar() {
+class TracyPluginRegistrar : CompilerPluginRegistrar() {
     override val supportsK2: Boolean = true
     override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
         IrGenerationExtension.registerExtension(AiDevKitTraceGeneratorExtension())

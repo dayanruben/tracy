@@ -1,1 +1,1 @@
-ai.jetbrains.tracy.compiler.plugin.AiDevKitTracePluginRegistrar
+ai.jetbrains.tracy.compiler.plugin.TracyPluginRegistrar
