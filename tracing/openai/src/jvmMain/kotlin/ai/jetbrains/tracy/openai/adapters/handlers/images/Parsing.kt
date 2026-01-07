@@ -1,10 +1,10 @@
-package ai.jetbrains.tracy.core.fluent.adapters.handlers.images
+package ai.jetbrains.tracy.openai.adapters.handlers.images
 
 import ai.jetbrains.tracy.core.adapters.media.MediaContent
 import ai.jetbrains.tracy.core.adapters.media.MediaContentExtractor
 import ai.jetbrains.tracy.core.adapters.media.MediaContentPart
 import ai.jetbrains.tracy.core.adapters.media.Resource
-import ai.jetbrains.tracy.core.fluent.adapters.handlers.asString
+import ai.jetbrains.tracy.openai.adapters.handlers.asString
 import ai.jetbrains.tracy.core.http.protocol.Response
 import ai.jetbrains.tracy.core.http.protocol.asJson
 import ai.jetbrains.tracy.core.tracing.policy.ContentKind

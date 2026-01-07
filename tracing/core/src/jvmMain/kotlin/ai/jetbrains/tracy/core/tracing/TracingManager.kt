@@ -34,7 +34,7 @@ object TracingManager {
     /*
      * Default name of the tracer.
      */
-    private const val AI_DEVELOPMENT_KIT_TRACER = "ai-development-kit"
+    private const val AI_DEVELOPMENT_KIT_TRACER = "tracy"
 
     private val logger = KotlinLogging.logger {}
 

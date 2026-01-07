@@ -1,8 +1,8 @@
-package ai.jetbrains.tracy.core.fluent.adapters.handlers.images
+package ai.jetbrains.tracy.openai.adapters.handlers.images
 
 import ai.jetbrains.tracy.test.utils.MediaContentAttributeValues
-import ai.jetbrains.tracy.core.fluent.clients.instrument
-import ai.jetbrains.tracy.core.fluent.adapters.BaseOpenAITracingTest
+import ai.jetbrains.tracy.openai.clients.instrument
+import ai.jetbrains.tracy.openai.adapters.BaseOpenAITracingTest
 import ai.jetbrains.tracy.core.tracing.TracingManager
 import ai.jetbrains.tracy.core.tracing.policy.ContentCapturePolicy
 import com.openai.models.images.ImageGenerateParams

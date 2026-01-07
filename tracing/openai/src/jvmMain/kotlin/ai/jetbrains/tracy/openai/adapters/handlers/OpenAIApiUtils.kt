@@ -1,4 +1,4 @@
-package ai.jetbrains.tracy.core.fluent.adapters.handlers
+package ai.jetbrains.tracy.openai.adapters.handlers
 
 import ai.jetbrains.tracy.core.http.protocol.Request
 import ai.jetbrains.tracy.core.http.protocol.Response

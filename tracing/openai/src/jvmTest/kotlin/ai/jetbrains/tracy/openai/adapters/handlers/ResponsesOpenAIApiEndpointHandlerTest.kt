@@ -1,12 +1,12 @@
-package ai.jetbrains.tracy.core.fluent.adapters.handlers
+package ai.jetbrains.tracy.openai.adapters.handlers
 
-import ai.jetbrains.tracy.core.fluent.clients.instrument
+import ai.jetbrains.tracy.openai.clients.instrument
 import ai.jetbrains.tracy.test.utils.MediaSource
 import ai.jetbrains.tracy.core.tracing.TracingManager
 import ai.jetbrains.tracy.test.utils.toDataUrl
 import ai.jetbrains.tracy.test.utils.toMediaContentAttributeValues
-import ai.jetbrains.tracy.core.fluent.adapters.BaseOpenAITracingTest
-import ai.jetbrains.tracy.core.fluent.adapters.containsToolCall
+import ai.jetbrains.tracy.openai.adapters.BaseOpenAITracingTest
+import ai.jetbrains.tracy.openai.adapters.containsToolCall
 import ai.jetbrains.tracy.core.tracing.policy.ContentCapturePolicy
 import com.openai.core.JsonValue
 import com.openai.models.ChatModel

@@ -64,7 +64,7 @@ private fun initOpenTelemetry(): TestTracing {
     val resource = Resource.getDefault()
         .merge(
             Resource.create(
-                Attributes.of(AttributeKey.stringKey("service.name"), "ai-development-kit")
+                Attributes.of(AttributeKey.stringKey("service.name"), "tracy")
             )
         )
 

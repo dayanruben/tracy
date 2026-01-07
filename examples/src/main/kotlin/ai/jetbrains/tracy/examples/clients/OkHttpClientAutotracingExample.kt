@@ -5,7 +5,7 @@ import ai.jetbrains.tracy.core.exporters.ConsoleExporterConfig
 import ai.jetbrains.tracy.core.instrument
 import ai.jetbrains.tracy.core.tracing.TracingManager
 import ai.jetbrains.tracy.core.tracing.configureOpenTelemetrySdk
-import ai.jetbrains.tracy.core.fluent.adapters.OpenAILLMTracingAdapter
+import ai.jetbrains.tracy.openai.adapters.OpenAILLMTracingAdapter
 import ai.jetbrains.tracy.gemini.adapters.GeminiLLMTracingAdapter
 import ai.jetbrains.tracy.anthropic.adapters.AnthropicLLMTracingAdapter
 import kotlinx.serialization.json.Json

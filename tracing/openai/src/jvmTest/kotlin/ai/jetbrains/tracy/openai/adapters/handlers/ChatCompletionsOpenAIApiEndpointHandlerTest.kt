@@ -1,10 +1,10 @@
-package ai.jetbrains.tracy.core.fluent.adapters.handlers
+package ai.jetbrains.tracy.openai.adapters.handlers
 
 import ai.jetbrains.tracy.core.tracing.policy.ContentCapturePolicy
-import ai.jetbrains.tracy.core.fluent.adapters.BaseOpenAITracingTest
-import ai.jetbrains.tracy.core.fluent.adapters.containsToolCall
-import ai.jetbrains.tracy.core.fluent.adapters.name
-import ai.jetbrains.tracy.core.fluent.clients.instrument
+import ai.jetbrains.tracy.openai.adapters.BaseOpenAITracingTest
+import ai.jetbrains.tracy.openai.adapters.containsToolCall
+import ai.jetbrains.tracy.openai.adapters.name
+import ai.jetbrains.tracy.openai.clients.instrument
 import ai.jetbrains.tracy.core.tracing.TracingManager
 import ai.jetbrains.tracy.test.utils.MediaSource
 import ai.jetbrains.tracy.test.utils.loadFileAsBase64Encoded
