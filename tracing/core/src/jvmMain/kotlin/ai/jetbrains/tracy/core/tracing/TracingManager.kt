@@ -12,11 +12,11 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Manager for setting up and managing OpenTelemetry tracing for the AI Development Kit.
+ * Manager for setting up and managing OpenTelemetry tracing for Tracy.
  *
  * This object provides utilities to:
  *  - Initialize and configure the OpenTelemetry SDK using a [BaseExporterConfig].
- *  - Obtain a default [Tracer] for the AI Development Kit, used in automatic tracing
+ *  - Obtain a default [Tracer] for Tracy, used in automatic tracing
  *    as well as annotation-based spans.
  *  - Flush and shut down traces gracefully.
  *
@@ -64,7 +64,7 @@ object TracingManager {
         private set
 
     /**
-     * Provides the default [Tracer] instance for the AI Development Kit.
+     * Provides the default [Tracer] instance for Tracy.
      *
      * Behavior:
      * - If tracing is enabled and an OpenTelemetry SDK has been initialized via [setSdk], returns a working tracer.

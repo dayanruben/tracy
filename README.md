@@ -1,13 +1,13 @@
-# AI Dev Kit
+# Tracy
 
-The **AI Development Kit** helps you **trace, monitor, and evaluate AI-powered features** directly from your
+The **Tracy** helps you **trace, monitor, and evaluate AI-powered features** directly from your
 Kotlin or Java projects.
 
 It provides a **unified API** to capture structured traces. Fully compatible with observability
 platforms like **Langfuse** and **Weights & Biases (W&B)**.
 
 > [!Note]
-> This project uses [AI Dev Kit official YouTrack project (TODO)]() for all issue tracking.  
+> This project uses [Tracy YouTrack project](https://youtrack.jetbrains.com/issues/TRACY) for issue tracking.  
 > Please file bug reports and feature requests there.
 > Issue templates and additional details are available in the [Contributing Guidelines](CONTRIBUTING.md).
 
@@ -208,7 +208,7 @@ Supports integration with:
 > See the [`examples`](examples/src/main/kotlin/ai/jetbrains/tracy/examples) directory for complete and
 > runnable examples!
 
-The AI Development Kit provides tracing integrations for multiple clients—not only `OpenAI`, but also `Gemini`,
+Tracy provides tracing integrations for multiple clients—not only `OpenAI`, but also `Gemini`,
 `Anthropic`,
 `Ktor`, and `OkHttp`.
 All clients can be instrumented in a similar way using the `instrument(...)` function.
@@ -398,7 +398,7 @@ An example demonstrating manual tracing can be found in [
 
 ### Tracing Backends
 
-The AI Development Kit provides integrations with multiple tracing backends, allowing you to choose the one that best
+Tracy provides integrations with multiple tracing backends, allowing you to choose the one that best
 fits your workflow.
 Currently supported backends include:
 
@@ -561,7 +561,7 @@ These tasks publish JARs of all modules, all versions of the Kotlin-compiler plu
 
 ### Versioning
 
-The AI Dev Kit follows semantic versioning:
+Tracy follows semantic versioning:
 
 ```
 <major>.<minor>.<patch>
@@ -583,4 +583,4 @@ sure you read it.
 
 ## License
 
-AI Dev Kit is licensed under the [Apache 2.0 License](LICENSE).
+Tracy is licensed under the [Apache 2.0 License](LICENSE).

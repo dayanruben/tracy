@@ -16,7 +16,7 @@ private fun printName(name: String): String {
 }
 
 /**
- * Demonstrates basic function tracing using the AI Dev Kit.
+ * Demonstrates basic function tracing using Tracy.
  *
  * This example shows how:
  * - Initializing tracing with [TracingManager] and [FileExporterConfig].

@@ -31,7 +31,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  *
  * Run the example. Span will appear in the console output.
  *
- * Note: The AI Dev Kit provides multiple provider-specific tracing loggers,
+ * Note: Tracy provides multiple provider-specific tracing loggers,
  * including [OpenAILLMTracingAdapter], [GeminiLLMTracingAdapter], and [AnthropicLLMTracingAdapter].
  * Choose the adapter that matches the provider your client uses.
  */

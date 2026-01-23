@@ -32,7 +32,7 @@ import kotlinx.serialization.json.buildJsonObject
  *
  * Run the example. Span will appear in the console output.
  *
- * Note: The AI Dev Kit provides multiple provider-specific tracing adapters,
+ * Note: Tracy provides multiple provider-specific tracing adapters,
  * including [OpenAILLMTracingAdapter], [GeminiLLMTracingAdapter], and [AnthropicLLMTracingAdapter].
  * Choose the adapter that matches the provider your client uses.
  */
