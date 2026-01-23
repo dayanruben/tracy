@@ -1,21 +1,15 @@
-# Tracy
+# Tracy: AI Tracing Library for Kotlin and Java
 
-The **Tracy** helps you **trace, monitor, and evaluate AI-powered features** directly from your
-Kotlin or Java projects.
+**Tracy** helps you **trace, monitor, and evaluate AI-powered features** directly from your Kotlin or Java projects.
 
 It provides a **unified API** to capture structured traces. Fully compatible with observability
 platforms like **Langfuse** and **Weights & Biases (W&B)**.
 
 > [!Note]
-> This project uses [Tracy YouTrack project](https://youtrack.jetbrains.com/issues/TRACY) for issue tracking.  
-> Please file bug reports and feature requests there.
-> Issue templates and additional details are available in the [Contributing Guidelines](CONTRIBUTING.md).
+> This project uses [Tracy Official YouTrack Project](https://youtrack.jetbrains.com/issues/TRACY) for issue tracking. Please file bug reports and feature requests there. Issue templates and additional details are available in the [Contributing Guidelines](CONTRIBUTING.md).
 
 **Standards:**  
-This library implements
-the [OpenTelemetry Generative AI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
-for span attributes and event naming, ensuring your traces remain compatible with any
-OpenTelemetry-compliant backend.
+This library implements the [OpenTelemetry Generative AI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) for span attributes and event naming, ensuring your traces remain compatible with any OpenTelemetry-compliant backend.
 
 You can use it to:
 
@@ -28,6 +22,11 @@ You can use it to:
 
 ## Installation
 
+Select the build system that matches your setup:
+
+<details>
+<summary><strong>Gradle (Kotlin DSL)</strong></summary>
+
 ### Gradle (Kotlin DSL)
 
 1. Add dependencies to the `build.gradle.kts` file:
@@ -37,8 +36,9 @@ You can use it to:
     }
     
     dependencies {
+        // Core Module with Shared Functionalities
         implementation("com.jetbrains:tracy-core:0.0.24")
-        // Clients Auto Tracing
+        // Client-specific Auto Tracing (select the one you need)
         implementation("com.jetbrains:tracy-anthropic:0.0.24")
         implementation("com.jetbrains:tracy-gemini:0.0.24")
         implementation("com.jetbrains:tracy-ktor:0.0.24")
@@ -64,7 +64,12 @@ You can use it to:
     }
     ```
 
----
+</details>
+
+
+
+<details>
+<summary><strong>Gradle (Groovy)</strong></summary>
 
 ### Gradle (Groovy)
 
@@ -76,7 +81,7 @@ You can use it to:
     
     dependencies {
         implementation 'com.jetbrains:tracy-core:0.0.24'
-        // Clients Auto Tracing
+        // Client-specific Auto Tracing
         implementation 'com.jetbrains:tracy-anthropic:0.0.24'
         implementation 'com.jetbrains:tracy-gemini:0.0.24'
         implementation 'com.jetbrains:tracy-ktor:0.0.24'
@@ -106,7 +111,12 @@ You can use it to:
     }
     ```
 
----
+</details>
+
+
+
+<details>
+<summary><strong>Maven</strong></summary>
 
 ### Maven
 
@@ -151,7 +161,7 @@ You can use it to:
           <artifactId>tracy-core-jvm</artifactId>
           <version>0.0.24</version>
         </dependency>
-          <!-- Clients Auto Tracing -->
+          <!-- Client-specific Auto Tracing -->
         <dependency>
             <groupId>com.jetbrains</groupId>
             <artifactId>tracy-anthropic-jvm</artifactId>
@@ -191,6 +201,9 @@ You can use it to:
         </pluginRepository>
     </pluginRepositories>
     ```
+
+</details>
+
 
 ## Requirements
 
@@ -259,17 +272,39 @@ Below is a minimal OpenAI example. For others, check the examples directory:
 
 ```kotlin
 // Initialize tracing and export spans to the console
-TracingManager.setSdk(configureOpenTelemetrySdk(ConsoleExporterConfig()))
-val instrumentedClient: OpenAIClient = instrument(fromEnv())
+val sdk: OpenTelemetrySdk = configureOpenTelemetrySdk(
+    exporterConfig = ConsoleExporterConfig()
+)
+TracingManager.setSdk(sdk)
+
+// Permit tracing of sensitive content in requests AND responses
+TracingManager.traceSensitiveContent()
+
+// Create an OpenAI client and instrument it with tracing capabilities
+val myOpenAIClient  = OpenAIOkHttpClient.builder()
+    .baseUrl(url)
+    .apiKey(apiKey)
+    .timeout(timeout)
+    .build()
+
+val instrumentedClient: OpenAIClient = instrument(myOpenAIClient)
+
+
+// Make request and receive response
 val request = ChatCompletionCreateParams.builder()
     .addUserMessage("Generate a polite greeting and introduce yourself.")
     .model(ChatModel.GPT_4O_MINI)
     .temperature(0.0)
     .build()
+
 val response = instrumentedClient.chat().completions().create(request)
+
 println("OpenAI response: ${response.choices().first().message().content().get()}")
+
 // Ensure all trace data is exported
 TracingManager.flushTraces()
+// Now, navigate to your terminal to see a single trace
+// with request and response details 
 ```
 
 > This example uses simple console tracing for a demonstration.
@@ -302,17 +337,19 @@ example: [OpenAI Client Auto Tracing Example](examples/src/main/kotlin/ai/jetbra
     - **SDK set after instrumentation**: instrumented clients start emitting spans immediately.
     - **Runtime toggle**: tracing can be dynamically enabled or disabled via `TracingManager.isTracingEnabled`.
 
+
 ### Annotation-Based Tracing
 
 You can trace regular functions (not only client calls)
 using the [`@KotlinFlowTrace`](tracing/core/src/commonMain/kotlin/ai/jetbrains/tracy/core/fluent/KotlinFlowTrace.kt)
-annotation.  
-Make sure to apply the `ai.jetbrains.tracy` plugin in your build.  
-The Kotlin compiler plugin automatically instruments annotated functions, capturing execution details such as start and
-end time, duration, inputs, and outputs.
+annotation.
 
-> ⚠️ Annotation-based tracing is supported **only in Kotlin**.  
-> For Java, use [Manual Tracing](#manual-tracing) instead.
+**Make sure to apply the `ai.jetbrains.tracy` plugin in your build.**
+
+The Kotlin compiler plugin automatically instruments annotated functions, capturing execution details such as start and end time, duration, inputs, and outputs.
+
+> ⚠️ Annotation-based tracing is supported **only in Kotlin**. For Java, use [Manual Tracing](#manual-tracing) instead.
+
 
 #### Quick Start
 
@@ -471,12 +508,13 @@ Configuration for exporting OpenTelemetry traces to a file in either JSON or pla
 #### OTLP Configuration
 
 There are [Http](tracing/core/src/jvmMain/kotlin/ai/jetbrains/tracy/core/exporters/otlp/OtlpHttpExporterConfig.kt) and
-[Grpc](tracing/core/src/jvmMain/kotlin/ai/jetbrains/tracy/core/exporters/otlp/OtlpGrpcExporterConfig.kt) configurations
+[gRPC](tracing/core/src/jvmMain/kotlin/ai/jetbrains/tracy/core/exporters/otlp/OtlpGrpcExporterConfig.kt) configurations
 available.
 Spans can be exported to any OTLP-compatible HTTP or gRPC collector (for example, Jaeger).
 [Jaeger Setup Example](examples/src/main/kotlin/ai/jetbrains/tracy/examples/backends/JaegerExporterExample.kt)
 
-### Project Structure
+
+## Project Structure
 
 - **[`plugin`](plugin)** — contains the Kotlin compiler plugins for annotation-based fluent tracing.  
   It includes multiple Kotlin Compiler Plugin (KCP) implementations for different Kotlin versions.  
@@ -493,10 +531,17 @@ Spans can be exported to any OTLP-compatible HTTP or gRPC collector (for example
     - **[`openai`](tracing/openai)** — tracing integration for the `OpenAI` client.
     - **[`gemini`](tracing/gemini)** — tracing integration for the `Gemini` client.
     - **[`anthropic`](tracing/anthropic)** — tracing integration for the `Anthropic` client.
-    - **[`test-utils`](tracing/test-utils)** — shared utilities for testing tracing functionality across
-      modules.
+    - **[`ktor`](tracing/ktor)** — tracing integration for the `Ktor` HTTP client.
+    - **[`test-utils`](tracing/test-utils)** — shared utilities for testing tracing functionality across modules.
 
-### Limitations
+## Limitations
+
+### Span Context Propagation
+
+There are a few known limitations of the library in terms of the content propogation. To see complete examples of the recommended usage patterns, refer to the [
+`ContextPropagationExample.kt`](examples/src/main/kotlin/ai/jetbrains/tracy/examples/ContextPropagationExample.kt) file.
+
+#### Kotlin Coroutines
 
 Context propagation works automatically in structured coroutines (e.g., `withContext`, `launch`).
 However, some concurrency models such as `runBlocking` and raw threads create new execution boundaries and require
@@ -505,8 +550,7 @@ However, some concurrency models such as `runBlocking` and raw threads create ne
 - **`runBlocking` inside suspend functions:**  
   Use [
   `currentSpanContextElement(...)`](tracing/core/src/jvmMain/kotlin/ai/jetbrains/tracy/core/fluent/processor/Utils.kt)
-  to ensure child spans remain linked to their parent.  
-  Without it, spans become detached and appear as separate traces.
+  to ensure child spans remain linked to their parent. Otherwise, spans become detached and appear as separate traces.
 
   ```kotlin
   @KotlinFlowTrace
@@ -520,8 +564,11 @@ However, some concurrency models such as `runBlocking` and raw threads create ne
       }
   }
   ```
+
+#### Multi-Threading
+
 - **Custom threads (via `thread { ... }`):**  
-  Threads do **not inherit** the OpenTelemetry context automatically.  
+  Threads **do NOT inherit** the OpenTelemetry context automatically.  
   Capture and propagate it manually:
   ```kotlin
   val context = currentSpanContext(currentCoroutineContext())
@@ -530,20 +577,16 @@ However, some concurrency models such as `runBlocking` and raw threads create ne
   }
   ```
 
-- **Local functions:**
-  Avoid using `@KotlinFlowTrace` on local (nested) functions.
-  This is a known Kotlin limitation: references to local functions do not correctly implement the KCallable
-  interface. For more details, see the related issue: [KT-64873](https://youtrack.jetbrains.com/issue/KT-64873).
+### Local functions
 
-See the [
-`ContextPropagationExample.kt`](examples/src/main/kotlin/ai/jetbrains/tracy/examples/ContextPropagationExample.kt) for
-a complete example.
+Avoid using `@KotlinFlowTrace` on local (nested) functions.
+This is a known Kotlin limitation: references to local functions do NOT implement the `KCallable`
+interface correctly. For more details, see the related issue: [KT-64873](https://youtrack.jetbrains.com/issue/KT-64873).
+
 
 ## Publishing
 
-This project uses **Gradle composite builds**.  
-Because of that, running plain `publish` or `publishToMavenLocal` is **not enough**. Included builds are not published
-automatically.
+This project uses **Gradle composite builds**. Thus, running plain `publish` or `publishToMavenLocal` is **NOT enough**. Included builds are not published automatically.
 
 Use these tasks instead:
 
