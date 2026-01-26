@@ -1,12 +1,6 @@
-import jetbrains.sign.GpgSignSignatoryProvider
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
-import java.util.Base64
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.toJavaDuration
+import jetbrains.sign.GpgSignSignatoryProvider
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,6 +9,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.plugins.signing.SigningExtension
+import java.util.Base64
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 initscript {
     repositories {
@@ -42,6 +42,17 @@ allprojects {
         }
 
         afterEvaluate {
+            val signAllPublications = tasks.register("signAllPublications") {
+                group = "signing"
+                description = "Signs all Maven publications in this project"
+                dependsOn(
+                    tasks.matching { it.name.startsWith("sign") && it.name.endsWith("Publication") })
+            }
+
+            tasks.matching { it.name.endsWith("PublicationToArtifactsRepository") }.configureEach {
+                dependsOn(signAllPublications)
+            }
+
             extensions.configure<PublishingExtension> {
                 repositories.maven {
                     name = "artifacts"
