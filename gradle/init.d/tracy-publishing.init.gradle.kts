@@ -311,8 +311,13 @@ gradle.rootProject {
                 val userName = rootProject.extra["centralPortalUserName"] as String
                 val token = rootProject.extra["centralPortalToken"] as String
 
-                val isUserManaged = true
-                val deploymentName = "${project.name}-${project.version}"
+                val publishingTypeEnv = System.getenv("SONATYPE_PUBLISHING_TYPE")?.uppercase()
+                val isUserManaged = when (publishingTypeEnv) {
+                    "AUTOMATIC" -> false
+                    else -> true
+                }
+                val buildNumber = System.getenv("BUILD_NUMBER") ?: "local"
+                val deploymentName = "${project.name}-build-$buildNumber"
 
                 val bundleTask = tasks.named("packSonatypeCentralBundle", Zip::class.java).get()
                 val bundleFile = bundleTask.archiveFile.get().asFile
