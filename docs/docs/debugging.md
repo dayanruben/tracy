@@ -8,7 +8,7 @@ Ensure the Tracy Gradle plugin is applied:
 
 ```kotlin
 plugins {
-    id("ai.jetbrains.tracy") version "0.0.24"
+    id("ai.jetbrains.tracy") version "0.0.25"
 }
 ```
 
