@@ -7,7 +7,7 @@ execution time, without manually creating spans.
 ## How it works
 
 To enable autotracing, you use the `instrument()` function provided by the specific module for the client you are using.
-This function wraps your client instance with a proxy that records OpenTelemetry spans for every API call.
+This function modifies your client instance in-place to record OpenTelemetry spans for every API call.
 
 ## Supported Clients
 
@@ -23,8 +23,10 @@ import com.openai.client.okhttp.OpenAIOkHttpClient
 -->
 
 ```kotlin
-val client = OpenAIOkHttpClient.builder().apiKey("api-token").build()
-val instrumentedClient = instrument(client)
+val instrumentedClient = OpenAIOkHttpClient.builder()
+    .apiKey("api-token")
+    .build()
+    .apply { instrument(this) }
 ```
 
 <!--- KNIT example-autotracing-01.kt -->
@@ -44,8 +46,10 @@ import com.anthropic.client.okhttp.AnthropicOkHttpClient
 -->
 
 ```kotlin
-val anthropicClient = AnthropicOkHttpClient.builder().apiKey("api-token").build()
-val instrumentedClient = instrument(anthropicClient)
+val instrumentedClient = AnthropicOkHttpClient.builder()
+    .apiKey("api-token")
+    .build()
+    .apply { instrument(this) }
 ```
 
 <!--- KNIT example-autotracing-02.kt -->
@@ -65,8 +69,10 @@ import com.google.genai.Client
 -->
 
 ```kotlin
-val geminiClient = Client.builder().apiKey("api-token").build()
-val instrumentedClient = instrument(geminiClient)
+val instrumentedClient = Client.builder()
+    .apiKey("api-token")
+    .build()
+    .apply { instrument(this) }
 ```
 
 <!--- KNIT example-autotracing-03.kt -->
