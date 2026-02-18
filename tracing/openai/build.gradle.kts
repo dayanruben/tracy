@@ -49,7 +49,7 @@ kotlin {
                 implementation(libs.ktor.client.cio)
                 implementation(libs.kotlinx.coroutines.test)
                 implementation(libs.opentelemetry.sdk.testing)
-                implementation(project(":tracing:test-utils"))
+                implementation(project.dependencies.testFixtures(project(":tracing:test-utils")))
             }
         }
     }
