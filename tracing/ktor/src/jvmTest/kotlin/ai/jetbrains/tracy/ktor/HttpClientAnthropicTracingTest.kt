@@ -43,7 +43,7 @@ class HttpClientAnthropicAITracingTest : BaseAITracingTest() {
             ),
             adapter,
         )
-        val model = Model.CLAUDE_3_7_SONNET_LATEST
+        val model = Model.CLAUDE_SONNET_4_5
         val promptMessage = "Say: 'Hello, world!'"
 
         client.post("$llmProviderUrl/v1/messages") {
@@ -79,8 +79,8 @@ class HttpClientAnthropicAITracingTest : BaseAITracingTest() {
     fun `test Ktor HttpClient auto tracing for Anthropic`() = runTest {
         val client: HttpClient = instrument(HttpClient(), AnthropicLLMTracingAdapter())
 
-        val model = Model.CLAUDE_3_7_SONNET_20250219
-        val promptMessage = "Hello, world!"
+        val model = Model.CLAUDE_SONNET_4_5
+        val promptMessage = "Hello, world! Make your response multiline!"
 
         val response = client.post("$llmProviderUrl/v1/messages") {
             header("x-api-key", llmProviderApiKey)
@@ -118,7 +118,7 @@ class HttpClientAnthropicAITracingTest : BaseAITracingTest() {
         assertTrue(tracedModel.startsWith(model.asString()))
 
         assertEquals("user", trace.attributes[AttributeKey.stringKey("gen_ai.prompt.0.role")])
-        assertEquals(promptMessage, trace.attributes[AttributeKey.stringKey("gen_ai.prompt.0.content")]?.unquote())
+        assertEquals(promptMessage, trace.attributes[AttributeKey.stringKey("gen_ai.prompt.0.content")]?.unquoteAndUnescapeNewlines())
 
         val completionType = trace.attributes[AttributeKey.stringKey("gen_ai.completion.0.type")]
         val completionText = trace.attributes[AttributeKey.stringKey("gen_ai.completion.0.content")]
@@ -145,7 +145,7 @@ class HttpClientAnthropicAITracingTest : BaseAITracingTest() {
         assertEquals(responseJson["content"]!!.jsonArray[0].jsonObject["type"]!!.jsonPrimitive.content, completionType)
         assertEquals(
             responseJson["content"]!!.jsonArray[0].jsonObject["text"]!!.jsonPrimitive.content,
-            completionText.unquote()
+            completionText.unquoteAndUnescapeNewlines(),
         )
 
         val usage = responseJson["usage"]!!.jsonObject
