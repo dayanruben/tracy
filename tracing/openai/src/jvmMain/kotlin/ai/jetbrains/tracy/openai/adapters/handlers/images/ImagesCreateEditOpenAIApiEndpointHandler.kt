@@ -10,13 +10,12 @@ import ai.jetbrains.tracy.core.adapters.media.MediaContent
 import ai.jetbrains.tracy.core.adapters.media.MediaContentExtractor
 import ai.jetbrains.tracy.core.adapters.media.MediaContentPart
 import ai.jetbrains.tracy.core.adapters.media.Resource
-import ai.jetbrains.tracy.core.http.protocol.Request
-import ai.jetbrains.tracy.core.http.protocol.Response
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpRequest
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpResponse
 import ai.jetbrains.tracy.core.http.protocol.asFormData
 import ai.jetbrains.tracy.core.policy.ContentKind
 import ai.jetbrains.tracy.core.policy.contentTracingAllowed
 import ai.jetbrains.tracy.core.policy.orRedactedInput
-import io.ktor.http.*
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes
 import kotlinx.serialization.json.Json
@@ -32,7 +31,7 @@ import java.util.*
 internal class ImagesCreateEditOpenAIApiEndpointHandler(
     private val extractor: MediaContentExtractor
 ) : EndpointApiHandler {
-    override fun handleRequestAttributes(span: Span, request: Request) {
+    override fun handleRequestAttributes(span: Span, request: TracyHttpRequest) {
         val body = request.body.asFormData() ?: return
 
         val mediaContentParts = mutableListOf<MediaContentPart>()
@@ -45,16 +44,13 @@ internal class ImagesCreateEditOpenAIApiEndpointHandler(
                 continue
             }
 
-            val content = contentType.withoutParameters().let {
-                when {
-                    it.match(ContentType.Image.Any) ->
-                        Base64.getEncoder().encodeToString(part.content)
-
-                    it.match(ContentType.Text.Any) ->
-                        part.content.toString(contentType.charset() ?: Charsets.UTF_8)
-
-                    else -> null
-                }
+            // decode content based on the expected content type
+            val content = when(contentType.type) {
+                "image" -> Base64.getEncoder().encodeToString(part.content)
+                "text" -> part.content.toString(
+                    contentType.charset() ?: Charsets.US_ASCII
+                )
+                else -> null
             }
 
             if (content == null) {
@@ -75,13 +71,13 @@ internal class ImagesCreateEditOpenAIApiEndpointHandler(
                     // trace mask only when input content tracing is allowed.
                     // base64-encoded mask content
                     span.setAttribute("gen_ai.request.mask.content", content)
-                    span.setAttribute("gen_ai.request.mask.contentType", contentType.toString())
+                    span.setAttribute("gen_ai.request.mask.contentType", contentType.asString())
                     if (part.filename != null) {
                         span.setAttribute("gen_ai.request.mask.filename", part.filename)
                     }
                     // save mask for further upload
                     mediaContentParts.add(
-                        MediaContentPart(resource = Resource.Base64(content, contentType))
+                        MediaContentPart(resource = Resource.Base64(content, contentType.asString()))
                     )
                 }
                 // either a single image or an array of images
@@ -89,13 +85,13 @@ internal class ImagesCreateEditOpenAIApiEndpointHandler(
                     // trace images only when input content tracing is allowed.
                     // base64-encoded image content
                     span.setAttribute("gen_ai.request.image.$imagesCount.content", content)
-                    span.setAttribute("gen_ai.request.image.$imagesCount.contentType", contentType.toString())
+                    span.setAttribute("gen_ai.request.image.$imagesCount.contentType", contentType.asString())
                     if (part.filename != null) {
                         span.setAttribute("gen_ai.request.image.$imagesCount.filename", part.filename)
                     }
                     // save image for further upload
                     mediaContentParts.add(
-                        MediaContentPart(resource = Resource.Base64(content, contentType))
+                        MediaContentPart(resource = Resource.Base64(content, contentType.asString()))
                     )
                     ++imagesCount
                 }
@@ -118,7 +114,7 @@ internal class ImagesCreateEditOpenAIApiEndpointHandler(
         }
     }
 
-    override fun handleResponseAttributes(span: Span, response: Response) {
+    override fun handleResponseAttributes(span: Span, response: TracyHttpResponse) {
         handleImageGenerationResponseAttributes(span, response, extractor)
     }
 

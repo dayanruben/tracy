@@ -6,8 +6,6 @@
 package ai.jetbrains.tracy.core.adapters
 
 import ai.jetbrains.tracy.core.http.protocol.*
-import ai.jetbrains.tracy.core.http.protocol.Url
-import io.ktor.http.*
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.sdk.trace.ReadableSpan
@@ -50,7 +48,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * @param genAISystem The name of the GenAI system (e.g., "openai", "anthropic", "gemini")
  */
 abstract class LLMTracingAdapter(private val genAISystem: String) {
-    fun registerRequest(span: Span, request: Request): Unit = runCatching {
+    fun registerRequest(span: Span, request: TracyHttpRequest): Unit = runCatching {
         span.updateName(getSpanName(request))
 
         // Pre-allocate in case the span reaches the limit
@@ -66,24 +64,23 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
         span.recordException(exception)
     }
 
-    fun registerResponse(span: Span, response: Response): Unit =
+    fun registerResponse(span: Span, response: TracyHttpResponse): Unit =
         runCatching {
             val body = response.body.asJson()?.jsonObject ?: return
             val isStreamingRequest = body["stream"]?.jsonPrimitive?.boolean == true
+            val mimeType = response.contentType?.mimeType
 
-            if (response.contentType != null) {
+            if (mimeType != null) {
                 when {
-                    response.contentType.match(REQUIRED_CONTENT_TYPE) -> {
+                    mimeType == TracyContentType.Application.Json.mimeType -> {
                         getResponseBodyAttributes(span, response)
                     }
-
-                    isStreamingRequest && response.contentType.match(EVENT_STREAM_CONTENT_TYPE) -> {
+                    isStreamingRequest && mimeType == TracyContentType.Text.EventStream.mimeType -> {
                         span.setAttribute("gen_ai.response.streaming", true)
-                        span.setAttribute("gen_ai.completion.content.type", response.contentType.toString())
+                        span.setAttribute("gen_ai.completion.content.type", response.contentType?.asString())
                     }
-
                     else -> {
-                        span.setAttribute("gen_ai.completion.content.type", response.contentType.toString())
+                        span.setAttribute("gen_ai.completion.content.type", response.contentType?.asString())
                     }
                 }
             }
@@ -110,7 +107,7 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
             span.recordException(exception)
         }
 
-    protected open fun getResponseErrorBodyAttributes(span: Span, body: ResponseBody) {
+    protected open fun getResponseErrorBodyAttributes(span: Span, body: TracyHttpResponseBody) {
         body.asJson()?.jsonObject["error"]?.jsonObject?.let { error ->
             error["message"]?.jsonPrimitive?.let { span.setAttribute("gen_ai.error.message", it.content) }
             error["type"]?.jsonPrimitive?.let { span.setAttribute("gen_ai.error.type", it.content) }
@@ -119,17 +116,14 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
         }
     }
 
-    protected abstract fun getRequestBodyAttributes(span: Span, request: Request)
-    protected abstract fun getResponseBodyAttributes(span: Span, response: Response)
+    protected abstract fun getRequestBodyAttributes(span: Span, request: TracyHttpRequest)
+    protected abstract fun getResponseBodyAttributes(span: Span, response: TracyHttpResponse)
 
-    abstract fun getSpanName(request: Request): String
-    abstract fun isStreamingRequest(request: Request): Boolean
-    abstract fun handleStreaming(span: Span, url: Url, events: String)
+    abstract fun getSpanName(request: TracyHttpRequest): String
+    abstract fun isStreamingRequest(request: TracyHttpRequest): Boolean
+    abstract fun handleStreaming(span: Span, url: TracyHttpUrl, events: String)
 
     companion object {
-        private val REQUIRED_CONTENT_TYPE = ContentType.Application.Json
-        private val EVENT_STREAM_CONTENT_TYPE = ContentType.Text.EventStream
-
         private const val DROPPED_ATTRIBUTES_COUNT_ATTRIBUTE_KEY = "otel.dropped_attributes_count"
 
         /**

@@ -10,13 +10,11 @@ import ai.jetbrains.tracy.core.adapters.media.MediaContent
 import ai.jetbrains.tracy.core.adapters.media.MediaContentExtractor
 import ai.jetbrains.tracy.core.adapters.media.MediaContentPart
 import ai.jetbrains.tracy.core.adapters.media.Resource
-import ai.jetbrains.tracy.core.http.protocol.Request
-import ai.jetbrains.tracy.core.http.protocol.Response
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpRequest
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpResponse
 import ai.jetbrains.tracy.core.http.protocol.asJson
-import io.ktor.http.*
 import io.opentelemetry.api.trace.Span
 import kotlinx.serialization.json.*
-import mu.KotlinLogging
 
 /**
  * Parses Imagen API requests and responses
@@ -26,7 +24,7 @@ import mu.KotlinLogging
 class GeminiImagenHandler(
     private val extractor: MediaContentExtractor
 ) : EndpointApiHandler {
-    override fun handleRequestAttributes(span: Span, request: Request) {
+    override fun handleRequestAttributes(span: Span, request: TracyHttpRequest) {
         val body = request.body.asJson()?.jsonObject ?: return
 
         val instances = body["instances"]?.jsonArray ?: return
@@ -72,7 +70,7 @@ class GeminiImagenHandler(
         body["parameters"]?.let { span.setAttribute("tracy.request.imagen.parameters", it.toString()) }
     }
 
-    override fun handleResponseAttributes(span: Span, response: Response) {
+    override fun handleResponseAttributes(span: Span, response: TracyHttpResponse) {
         val body = response.body.asJson()?.jsonObject ?: return
 
         val predictions = body["predictions"]?.jsonArray ?: return
@@ -110,15 +108,8 @@ class GeminiImagenHandler(
     private fun parseImagenImage(image: JsonObject): Resource? {
         val mimeType = image["mimeType"]?.jsonPrimitive?.content ?: return null
         val base64 = image["bytesBase64Encoded"]?.jsonPrimitive?.content ?: return null
-        val contentType = ContentType.parseOrNull(mimeType)
 
-        if (contentType == null) {
-            logger.warn("Cannot convert the mime type '$mimeType' to content type")
-            return null
-        }
-
-        return Resource.Base64(base64, contentType)
+        // NOTE: mediaType == mimeType when parameters are empty
+        return Resource.Base64(base64, mimeType)
     }
-
-    private val logger = KotlinLogging.logger {}
 }

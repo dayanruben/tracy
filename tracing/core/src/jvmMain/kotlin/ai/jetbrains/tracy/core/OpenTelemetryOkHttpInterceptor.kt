@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import mu.KotlinLogging
 import okhttp3.Interceptor
+import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.Buffer
@@ -223,14 +224,16 @@ class OpenTelemetryOkHttpInterceptor(
                 val (bodyContent, request) = chain.request().withCopiedBodyContent()
 
                 if (bodyContent != null) {
+                    // building request view
                     val mediaType = request.body?.contentType()
-                    val req = bodyContent.asRequestBody(mediaType)?.let {
-                        Request(
-                            contentType = mediaType?.toContentType(),
+                    val req: TracyHttpRequest? = mediaType?.let {
+                        val body = bodyContent.asRequestBody(mediaType = it)
+                        body?.asRequestView(
+                            contentType = mediaType.toContentType(),
                             url = request.url.toProtocolUrl(),
-                            body = it,
                         )
                     }
+
                     if (req != null) {
                         isStreamingRequest = adapter.isStreamingRequest(req)
                         adapter.registerRequest(span, req)
@@ -243,20 +246,12 @@ class OpenTelemetryOkHttpInterceptor(
 
                 // register response
                 val response = chain.proceed(request)
-                val responseMediaType = response.body?.contentType()
 
                 return if (isStreamingRequest) {
                     val streamingMarker = JsonObject(mapOf("stream" to JsonPrimitive(true)))
                     val url = request.url.toProtocolUrl()
-                    adapter.registerResponse(
-                        span = span,
-                        response = Response(
-                            contentType = responseMediaType?.toContentType(),
-                            code = response.code,
-                            body = ResponseBody.Json(streamingMarker),
-                            url = url,
-                        ),
-                    )
+                    adapter.registerResponse(span, response = response.asResponseView(streamingMarker))
+
                     wrapStreamingResponse(response, url, span)
                 } else {
                     val decodedResponse = try {
@@ -264,15 +259,8 @@ class OpenTelemetryOkHttpInterceptor(
                     } catch (_: Exception) {
                         JsonObject(emptyMap())
                     }
-                    adapter.registerResponse(
-                        span = span,
-                        response = Response(
-                            contentType = responseMediaType?.toContentType(),
-                            code = response.code,
-                            body = ResponseBody.Json(decodedResponse),
-                            url = request.url.toProtocolUrl(),
-                        ),
-                    )
+
+                    adapter.registerResponse(span, response = response.asResponseView(decodedResponse))
                     response
                 }
             } catch (e: Exception) {
@@ -289,7 +277,7 @@ class OpenTelemetryOkHttpInterceptor(
 
     private fun wrapStreamingResponse(
         originalResponse: OkHttpResponse,
-        url: Url,
+        url: TracyHttpUrl,
         span: Span,
     ): OkHttpResponse {
         val originalBody = originalResponse.body ?: return originalResponse
@@ -362,5 +350,23 @@ class OpenTelemetryOkHttpInterceptor(
 
         return content to request
     }
-}
 
+    private fun OkHttpResponse.asResponseView(body: JsonObject): TracyHttpResponse {
+        val response = this
+        val mediaType = response.body?.contentType()
+
+        return object : TracyHttpResponse {
+            override val contentType = mediaType?.toContentType()
+            override val code = response.code
+            override val body = TracyHttpResponseBody.Json(body)
+            override val url = response.request.url.toProtocolUrl()
+
+            override fun isError() = response.isSuccessful.not()
+        }
+    }
+
+    private fun ByteArray.asRequestBody(mediaType: MediaType) = this.asRequestBody(
+        contentType = mediaType.toContentType(),
+        charset = mediaType.charset() ?: Charsets.UTF_8,
+    )
+}

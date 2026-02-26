@@ -8,15 +8,14 @@ package ai.jetbrains.tracy.anthropic.adapters
 import ai.jetbrains.tracy.core.adapters.LLMTracingAdapter
 import ai.jetbrains.tracy.core.adapters.LLMTracingAdapter.Companion.PayloadType
 import ai.jetbrains.tracy.core.adapters.media.*
-import ai.jetbrains.tracy.core.http.protocol.Request
-import ai.jetbrains.tracy.core.http.protocol.Response
-import ai.jetbrains.tracy.core.http.protocol.Url
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpRequest
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpResponse
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpUrl
 import ai.jetbrains.tracy.core.http.protocol.asJson
 import ai.jetbrains.tracy.core.policy.ContentKind
 import ai.jetbrains.tracy.core.policy.contentTracingAllowed
 import ai.jetbrains.tracy.core.policy.orRedactedInput
 import ai.jetbrains.tracy.core.policy.orRedactedOutput
-import io.ktor.http.*
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.*
 import kotlinx.serialization.json.*
@@ -49,7 +48,7 @@ import mu.KotlinLogging
  * See: [Anthropic Messages API](https://docs.claude.com/en/api/messages)
  */
 class AnthropicLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiSystemIncubatingValues.ANTHROPIC) {
-    override fun getRequestBodyAttributes(span: Span, request: Request) {
+    override fun getRequestBodyAttributes(span: Span, request: TracyHttpRequest) {
         val body = request.body.asJson()?.jsonObject ?: return
 
         body["temperature"]?.jsonPrimitive?.let { span.setAttribute(GEN_AI_REQUEST_TEMPERATURE, it.doubleOrNull) }
@@ -117,7 +116,7 @@ class AnthropicLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiSystemIn
         span.populateUnmappedAttributes(body, mappedAttributes, PayloadType.REQUEST)
     }
 
-    override fun getResponseBodyAttributes(span: Span, response: Response) {
+    override fun getResponseBodyAttributes(span: Span, response: TracyHttpResponse) {
         val body = response.body.asJson()?.jsonObject ?: return
 
         body["id"]?.let { span.setAttribute(GEN_AI_RESPONSE_ID, it.jsonPrimitive.content) }
@@ -198,11 +197,11 @@ class AnthropicLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiSystemIn
         span.populateUnmappedAttributes(body, mappedAttributes, PayloadType.RESPONSE)
     }
 
-    override fun getSpanName(request: Request) = "Anthropic-generation"
+    override fun getSpanName(request: TracyHttpRequest) = "Anthropic-generation"
 
     // streaming is not supported
-    override fun isStreamingRequest(request: Request) = false
-    override fun handleStreaming(span: Span, url: Url, events: String) = Unit
+    override fun isStreamingRequest(request: TracyHttpRequest) = false
+    override fun handleStreaming(span: Span, url: TracyHttpUrl, events: String) = Unit
 
     /**
      * Parses content of the `messages` field when its type is
@@ -299,15 +298,8 @@ class AnthropicLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiSystemIn
             return null
         }
 
-        val contentType = try {
-            ContentType.parse(mediaType)
-        } catch (err: Exception) {
-            logger.warn(err) { "Failed to parse content type from media type of '$mediaType'" }
-            null
-        } ?: return null
-
         // add base64 resource
-        return Resource.Base64(data, contentType)
+        return Resource.Base64(data, mediaType)
     }
 
     private fun parseContent(messageType: String, source: JsonObject): List<Resource> {

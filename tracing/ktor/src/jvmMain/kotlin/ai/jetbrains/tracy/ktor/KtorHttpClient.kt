@@ -7,10 +7,9 @@ package ai.jetbrains.tracy.ktor
 
 import ai.jetbrains.tracy.core.TracingManager
 import ai.jetbrains.tracy.core.adapters.LLMTracingAdapter
-import ai.jetbrains.tracy.core.http.protocol.Request
-import ai.jetbrains.tracy.core.http.protocol.Response
-import ai.jetbrains.tracy.core.http.protocol.ResponseBody
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpResponse
 import ai.jetbrains.tracy.core.http.protocol.asRequestBody
+import ai.jetbrains.tracy.core.http.protocol.asRequestView
 import io.ktor.client.*
 import io.ktor.client.plugins.api.*
 import io.ktor.client.request.*
@@ -41,8 +40,6 @@ import kotlinx.serialization.serializer
 import mu.KotlinLogging
 import kotlin.reflect.full.hasAnnotation
 import kotlin.reflect.full.starProjectedType
-import ai.jetbrains.tracy.core.http.protocol.RequestBody as TracyRequestBody
-
 
 /**
  * Instruments a Ktor [HttpClient] with OpenTelemetry tracing for LLM provider API calls.
@@ -180,25 +177,34 @@ private class TracingPlugin(private val adapter: LLMTracingAdapter) {
                 span.makeCurrent().use {
                     request.attributes.put(httpSpanKey, span)
 
-                    val contentType = request.contentType()
+                    val contentType = request.contentType()?.toContentType()
+                    val charset = request.contentType()?.charset() ?: Charsets.UTF_8
                     val bodyContent = request.copyBodyContent()
 
+                    // parse the request body and make a request view with it
                     val requestBody = when {
-                        (bodyContent != null) && (contentType != null) -> bodyContent.asRequestBody(contentType)
-                        else -> {
-                            logger.warn("Either body or content type are null, defaulting to empty request body")
+                        (bodyContent != null) && (contentType != null) -> try {
+                            bodyContent.asRequestBody(contentType, charset)
+                        } catch(e: Exception) {
+                            logger.warn(e) { "Failed to parse request body for tracing; request body will not be traced" }
                             null
                         }
-                    } ?: TracyRequestBody.Empty
+                        else -> {
+                            logger.warn("Either body or content type are null; request body will not be traced")
+                            null
+                        }
+                    }
 
-                    val req = Request(
-                        url = request.url.toProtocolUrl(),
-                        body = requestBody,
-                        contentType = contentType,
+                    val req = requestBody?.asRequestView(contentType, url = request.url.toProtocolUrl())
+
+                    request.attributes.put(
+                        isStreamingRequestKey,
+                        value = req?.let { adapter.isStreamingRequest(it) } ?: false
                     )
 
-                    request.attributes.put(isStreamingRequestKey, value = adapter.isStreamingRequest(req))
-                    adapter.registerRequest(span, req)
+                    if (req != null) {
+                        adapter.registerRequest(span, req)
+                    }
                 }
             }
 
@@ -228,15 +234,7 @@ private class TracingPlugin(private val adapter: LLMTracingAdapter) {
                     JsonObject(emptyMap())
                 }
 
-                adapter.registerResponse(
-                    span,
-                    response = Response(
-                        contentType = response.contentType(),
-                        code = response.status.value,
-                        body = ResponseBody.Json(body),
-                        url = response.request.url.toProtocolUrl(),
-                    ),
-                )
+                adapter.registerResponse(span, response = response.asResponseView(body))
                 span.end()
             }
 
@@ -254,17 +252,8 @@ private class TracingPlugin(private val adapter: LLMTracingAdapter) {
                 }
 
                 val body = JsonObject(mapOf("stream" to JsonPrimitive(true)))
-
-                adapter.registerResponse(
-                    span,
-                    response = Response(
-                        contentType = response.contentType()
-                            ?.let { ContentType(it.contentType, it.contentSubtype) },
-                        code = response.status.value,
-                        body = ResponseBody.Json(body),
-                        url = response.request.url.toProtocolUrl(),
-                    )
-                )
+                // registering response attributes into span
+                adapter.registerResponse(span, response = response.asResponseView(body))
 
                 val originalBody: ByteReadChannel = content
                 val tracingChannel = ByteChannel(autoFlush = true)
@@ -303,6 +292,8 @@ private class TracingPlugin(private val adapter: LLMTracingAdapter) {
             }
         })
     }
+
+    private fun HttpResponse.asResponseView(body: JsonObject): TracyHttpResponse = TracyHttpResponseView(response = this, body)
 
     /**
      * Helper function to serialize `@Serializable` objects with an unknown type
@@ -363,9 +354,3 @@ private class TracingPlugin(private val adapter: LLMTracingAdapter) {
         }
     }
 }
-
-private fun URLBuilder.toProtocolUrl() =
-    ai.jetbrains.tracy.core.http.protocol.Url(protocol.name, host, pathSegments)
-
-private fun Url.toProtocolUrl() =
-    ai.jetbrains.tracy.core.http.protocol.Url(protocol.name, host, segments)

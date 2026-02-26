@@ -5,9 +5,8 @@
 
 package ai.jetbrains.tracy.core.http.protocol
 
-import io.ktor.http.*
+import ai.jetbrains.tracy.core.InternalTracyApi
 import kotlinx.serialization.json.JsonElement
-
 
 /**
  * Represents an HTTP response including its metadata and body content.
@@ -16,42 +15,37 @@ import kotlinx.serialization.json.JsonElement
  *                       This value may be null if the content type is not specified.
  * @property code The HTTP status code of the response, indicating the result of the HTTP request
  *                (e.g., 200 for success, 404 for not found).
- * @property body The body of the HTTP response, encapsulated in a [ResponseBody] object, which can
+ * @property body The body of the HTTP response, encapsulated in a [TracyHttpResponseBody] object, which can
  *                represent different response formats, such as JSON.
  * @property url The URL associated with the HTTP response (i.e., where the initial request was made to).
  */
-data class Response(
-    val contentType: ContentType?,
-    val code: Int,
-    val body: ResponseBody,
-    val url: Url,
-)
+@InternalTracyApi
+interface TracyHttpResponse {
+    val contentType: TracyContentType?
+    val code: Int
+    val body: TracyHttpResponseBody
+    val url: TracyHttpUrl
+
+    fun isError(): Boolean
+}
 
 /**
  * Encapsulates the body content of an HTTP response.
  *
- * This sealed class is used as part of the [Response] data structure to represent the various
+ * This sealed class is used as part of the [TracyHttpResponse] data structure to represent the various
  * formats of data that can be included in the response body of an HTTP transaction.
  *
  * - [Json]: Represents a JSON response body containing structured data, which can be parsed
  *           and accessed as a [JsonElement].
  */
-sealed class ResponseBody {
-    data class Json(val json: JsonElement) : ResponseBody()
+@InternalTracyApi
+sealed class TracyHttpResponseBody {
+    data class Json(val json: JsonElement) : TracyHttpResponseBody()
 }
 
-fun Response.isClientError(): Boolean {
-    return this.code in 400..499
-}
-
-fun Response.isServerError(): Boolean {
-    return this.code in 500..599
-}
-
-fun Response.isError() = isClientError() || isServerError()
-
-fun ResponseBody.asJson(): JsonElement? {
+@InternalTracyApi
+fun TracyHttpResponseBody.asJson(): JsonElement? {
     return when (this) {
-        is ResponseBody.Json -> this.json
+        is TracyHttpResponseBody.Json -> this.json
     }
 }

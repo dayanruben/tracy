@@ -8,18 +8,34 @@ package ai.jetbrains.tracy.openai.adapters.handlers
 import ai.jetbrains.tracy.core.adapters.LLMTracingAdapter.Companion.PayloadType
 import ai.jetbrains.tracy.core.adapters.LLMTracingAdapter.Companion.populateUnmappedAttributes
 import ai.jetbrains.tracy.core.adapters.handlers.EndpointApiHandler
-import ai.jetbrains.tracy.core.adapters.media.*
-import ai.jetbrains.tracy.core.http.protocol.Request
-import ai.jetbrains.tracy.core.http.protocol.Response
+import ai.jetbrains.tracy.core.adapters.media.MediaContent
+import ai.jetbrains.tracy.core.adapters.media.MediaContentExtractor
+import ai.jetbrains.tracy.core.adapters.media.MediaContentPart
+import ai.jetbrains.tracy.core.adapters.media.Resource
+import ai.jetbrains.tracy.core.adapters.media.isValidUrl
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpRequest
+import ai.jetbrains.tracy.core.http.protocol.TracyHttpResponse
 import ai.jetbrains.tracy.core.http.protocol.asJson
-import ai.jetbrains.tracy.core.policy.*
-import io.ktor.http.*
+import ai.jetbrains.tracy.core.policy.ContentKind
+import ai.jetbrains.tracy.core.policy.contentTracingAllowed
+import ai.jetbrains.tracy.core.policy.orRedacted
+import ai.jetbrains.tracy.core.policy.orRedactedInput
+import ai.jetbrains.tracy.core.policy.orRedactedOutput
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_INPUT_TOKENS
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_OUTPUT_TOKENS
-import kotlinx.serialization.json.*
-import mu.KotlinLogging
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
 
 /**
  * Handler for OpenAI Chat Completions API
@@ -27,7 +43,7 @@ import mu.KotlinLogging
 internal class ChatCompletionsOpenAIApiEndpointHandler(
     private val extractor: MediaContentExtractor
 ) : EndpointApiHandler {
-    override fun handleRequestAttributes(span: Span, request: Request) {
+    override fun handleRequestAttributes(span: Span, request: TracyHttpRequest) {
         val body = request.body.asJson()?.jsonObject ?: return
         OpenAIApiUtils.setCommonRequestAttributes(span, request)
 
@@ -117,7 +133,7 @@ internal class ChatCompletionsOpenAIApiEndpointHandler(
         span.setAttribute("gen_ai.prompt.$index.content", result.orRedacted(kind))
     }
 
-    override fun handleResponseAttributes(span: Span, response: Response) {
+    override fun handleResponseAttributes(span: Span, response: TracyHttpResponse) {
         val body = response.body.asJson()?.jsonObject ?: return
 
         body["choices"]?.let { choices ->
@@ -258,10 +274,11 @@ internal class ChatCompletionsOpenAIApiEndpointHandler(
                 val mediaPart = when (type) {
                     "image_url" -> {
                         val url = part.jsonObject["image_url"]?.jsonObject["url"]?.jsonPrimitive?.content ?: continue
+
                         if (url.isValidUrl()) {
-                            MediaContentPart(Resource.Url(url))
+                            MediaContentPart(resource = Resource.Url(url))
                         } else if (url.startsWith("data:")) {
-                            MediaContentPart(Resource.InlineDataUrl(url))
+                            MediaContentPart(resource = Resource.InlineDataUrl(url))
                         } else {
                             null
                         }
@@ -274,24 +291,14 @@ internal class ChatCompletionsOpenAIApiEndpointHandler(
                         val format = part.jsonObject["input_audio"]?.jsonObject["format"]?.jsonPrimitive?.content
                             ?: continue
 
-                        val contentType = try {
-                            ContentType.parse("audio/$format")
-                        } catch (err: Exception) {
-                            logger.trace(
-                                "Failed to parse content type: 'audio/$format'. Skipping this content part",
-                                err
-                            )
-                            null
-                        } ?: continue
-
-                        MediaContentPart(resource = Resource.Base64(data, contentType))
+                        MediaContentPart(resource = Resource.Base64(data, mediaType = "audio/$format"))
                     }
 
                     "file" -> {
                         // OpenAI expects a data url with a base64-encoded PDF file
                         val fileData = part.jsonObject["file"]?.jsonObject["file_data"]?.jsonPrimitive?.content
                             ?: continue
-                        MediaContentPart(Resource.InlineDataUrl(fileData))
+                        MediaContentPart(resource = Resource.InlineDataUrl(fileData))
                     }
 
                     else -> null
@@ -323,6 +330,4 @@ internal class ChatCompletionsOpenAIApiEndpointHandler(
     )
 
     private val mappedAttributes = mappedRequestAttributes + mappedResponseAttributes
-
-    private val logger = KotlinLogging.logger {}
 }

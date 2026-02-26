@@ -35,13 +35,14 @@ kotlin {
                 implementation(libs.ktor.client)
                 implementation(libs.ktor.client.cio)
                 implementation(libs.ktor.client.negotiation)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.opentelemetry.kotlin)
+                implementation(libs.opentelemetry.exporter.otlp)
+                implementation(libs.opentelemetry.exporter.otlp.common)
                 implementation(libs.ktor.serialization.json)
                 implementation(libs.okhttp)
                 implementation(libs.opentelemetry.exporter.logging)
                 implementation(libs.opentelemetry.exporter.logging.otlp)
-                implementation(libs.opentelemetry.exporter.otlp)
-                implementation(libs.opentelemetry.exporter.otlp.common)
-                implementation(libs.opentelemetry.kotlin)
                 implementation(libs.opentelemetry.semconv.incubating)
             }
         }
@@ -106,10 +107,13 @@ tasks.named("jvmSourcesJar") {
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     dependsOn(generateBuildConfig)
     compilerOptions {
-        freeCompilerArgs.addAll("-java-parameters", "-Xexpect-actual-classes")
+        freeCompilerArgs.addAll(
+            "-java-parameters",
+            "-Xexpect-actual-classes",
+            "-Xopt-in=ai.jetbrains.tracy.core.InternalTracyApi",
+        )
     }
 }
-
 
 publishing {
     publications.withType<MavenPublication>().configureEach {
