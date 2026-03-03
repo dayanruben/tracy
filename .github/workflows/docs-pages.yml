@@ -1,0 +1,106 @@
+name: Publish Docs to GitHub Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v1.2.3)'
+        required: true
+        type: string
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: docs-${{ github.ref_type }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Build Dokka HTML
+        run: ./gradlew --no-daemon dokkaGenerate
+
+      - name: Resolve Dokka HTML output
+        id: dokka
+        run: |
+          set -euo pipefail
+          if [[ -d "build/dokka/html" ]]; then
+            echo "dir=build/dokka/html" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          found="$(find build -type d -path '*/dokka/html' | head -n 1 || true)"
+          if [[ -z "$found" ]]; then
+            echo "Dokka HTML directory not found under build/" >&2
+            exit 1
+          fi
+          echo "dir=$found" >> "$GITHUB_OUTPUT"
+
+      - name: Install MkDocs deps
+        working-directory: docs
+        run: |
+          uv sync --frozen --all-extras
+
+      - name: Install mike
+        working-directory: docs
+        run: |
+          uv pip install mike
+
+      - name: Prepare docs sources
+        run: |
+          set -euo pipefail
+
+          DOKKA_DIR="${{ steps.dokka.outputs.dir }}"
+          rm -rf docs/docs/api
+          mkdir -p docs/docs/api
+          rsync -a "$DOKKA_DIR"/ docs/docs/api/
+
+      - name: Publish with mike
+        working-directory: docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+          # Strip leading "v" from tag for cleaner version labels (e.g. v1.2.3 -> 1.2.3)
+          if [[ "$VERSION" == v* ]]; then
+            VERSION="${VERSION#v}"
+          fi
+          TEMP_BRANCH="docs/gh-pages-${VERSION}"
+          git fetch origin gh-pages
+          # Base temp branch on gh-pages without checking it out, so mkdocs.yml stays available.
+          git update-ref "refs/heads/$TEMP_BRANCH" "refs/remotes/origin/gh-pages"
+          uv run mike deploy --branch "$TEMP_BRANCH" --push --update-aliases "$VERSION" latest
+          uv run mike set-default --branch "$TEMP_BRANCH" --push latest
