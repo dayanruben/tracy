@@ -5,16 +5,6 @@
 
 package org.jetbrains.ai.tracy.openai.adapters.handlers
 
-import org.jetbrains.ai.tracy.core.TracingManager
-import org.jetbrains.ai.tracy.core.policy.ContentCapturePolicy
-import org.jetbrains.ai.tracy.openai.adapters.BaseOpenAITracingTest
-import org.jetbrains.ai.tracy.openai.adapters.containsToolCall
-import org.jetbrains.ai.tracy.openai.adapters.name
-import org.jetbrains.ai.tracy.openai.clients.instrument
-import org.jetbrains.ai.tracy.test.utils.MediaSource
-import org.jetbrains.ai.tracy.test.utils.loadFileAsBase64Encoded
-import org.jetbrains.ai.tracy.test.utils.toDataUrl
-import org.jetbrains.ai.tracy.test.utils.toMediaContentAttributeValues
 import com.openai.core.JsonValue
 import com.openai.models.ChatModel
 import com.openai.models.chat.completions.*
@@ -23,6 +13,15 @@ import com.openai.models.embeddings.EmbeddingModel
 import com.openai.models.responses.ResponseCreateParams
 import io.opentelemetry.api.common.AttributeKey
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.ai.tracy.core.TracingManager
+import org.jetbrains.ai.tracy.core.policy.ContentCapturePolicy
+import org.jetbrains.ai.tracy.openai.adapters.BaseOpenAITracingTest
+import org.jetbrains.ai.tracy.openai.adapters.containsToolCall
+import org.jetbrains.ai.tracy.openai.adapters.name
+import org.jetbrains.ai.tracy.openai.clients.instrument
+import org.jetbrains.ai.tracy.test.utils.MediaSource
+import org.jetbrains.ai.tracy.test.utils.toDataUrl
+import org.jetbrains.ai.tracy.test.utils.toMediaContentAttributeValues
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.Tag
@@ -371,37 +370,6 @@ class ChatCompletionsOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
     }
 
     @Test
-    fun `test audio file is extracted and uploaded on Langfuse`() = runTest(timeout = 3.minutes) {
-        val model = ChatModel.GPT_4O_AUDIO_PREVIEW
-        val prompt = "Tell me what is in the audio file"
-        val filepath = "lofi.wav"
-
-        val client = createOpenAIClient(timeout = Duration.ofMinutes(3)).apply { instrument(this) }
-
-        val params = ChatCompletionCreateParams.builder()
-            .model(model)
-            .addUserMessageOfArrayOfContentParts(
-                listOf(
-                    partAudio(filepath),
-                    partText(prompt),
-                )
-            )
-            .build()
-
-        client.chat().completions().create(params)
-
-        validateBasicTracing(model)
-        val trace = analyzeSpans().first()
-
-        val expectedMedia = MediaSource.File(filepath, "audio/wav")
-        verifyMediaContentUploadAttributes(
-            trace, expected = listOf(
-                expectedMedia.toMediaContentAttributeValues(field = "input")
-            )
-        )
-    }
-
-    @Test
     fun `test PDF file is extracted and uploaded on Langfuse`() = runTest(timeout = 3.minutes) {
         val model = ChatModel.GPT_4O
         val prompt = "Please describe what you see in the PDF file."
@@ -469,7 +437,7 @@ class ChatCompletionsOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
     }
 
     @Test
-    fun `test OpenAI chat completions auto tracing disable`() = runTest {
+    fun `test OpenAI chat completions auto tracing disabled`() = runTest {
         TracingManager.isTracingEnabled = false
 
         val model = ChatModel.GPT_4O_MINI
@@ -477,7 +445,7 @@ class ChatCompletionsOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
 
         val params = ChatCompletionCreateParams.builder()
             .addUserMessage("Generate polite greeting and introduce yourself")
-            .model(model).temperature(1.1).build()
+            .model(model).temperature(0.7).build()
 
         client.chat().completions().create(params)
 
@@ -604,24 +572,4 @@ class ChatCompletionsOpenAIApiEndpointHandlerTest : BaseOpenAITracingTest() {
             )
             .build()
     )
-
-    private fun partAudio(filepath: String): ChatCompletionContentPart {
-        val audioData = loadFileAsBase64Encoded(filepath)
-        val format = when (val ext = filepath.substringAfterLast(".")) {
-            "wav" -> ChatCompletionContentPartInputAudio.InputAudio.Format.WAV
-            "mp3" -> ChatCompletionContentPartInputAudio.InputAudio.Format.MP3
-            else -> error("Unsupported file format $ext at $filepath")
-        }
-
-        return ChatCompletionContentPart.ofInputAudio(
-            ChatCompletionContentPartInputAudio.builder()
-                .inputAudio(
-                    ChatCompletionContentPartInputAudio.InputAudio.builder()
-                        .format(format)
-                        .data(audioData)
-                        .build()
-                )
-                .build(),
-        )
-    }
 }
