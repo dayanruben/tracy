@@ -17,6 +17,8 @@ import org.jetbrains.ai.tracy.core.http.parsers.SseEvent
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpRequest
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpResponse
 import org.jetbrains.ai.tracy.core.http.protocol.asJson
+import org.jetbrains.ai.tracy.core.policy.orRedactedInput
+import org.jetbrains.ai.tracy.core.policy.orRedactedOutput
 
 /**
  * Parses Imagen API requests and responses
@@ -27,47 +29,48 @@ class GeminiImagenHandler(
     private val extractor: MediaContentExtractor
 ) : EndpointApiHandler {
     override fun handleRequestAttributes(span: Span, request: TracyHttpRequest) {
+        // body: { "instances": [..], "parameters": [..] }
         val body = request.body.asJson()?.jsonObject ?: return
 
-        val instances = body["instances"]?.jsonArray ?: return
-        for ((index, instance) in instances.withIndex()) {
-            span.setAttribute("gen_ai.prompt.$index.content", instance.jsonObject["prompt"]?.jsonPrimitive?.content)
+        val instancesEntry = body["instances"]
+        if (instancesEntry == null || instancesEntry !is JsonArray) {
+            return
         }
+        val instances = instancesEntry.jsonArray
 
-        // build resources from the input images
-        val images: List<Resource> = buildList {
-            for (instance in instances) {
-                val image = instance.jsonObject["image"]?.jsonObject ?: continue
-                val resource = parseImagenImage(image) ?: continue
-                add(resource)
+        // Collect every input image across all instances. The Imagen API uses three different
+        // shapes depending on the operation:
+        //   - generate : instance.prompt (text only, no input image)
+        //   - upscale  : instance.image           — single base64 image
+        //   - edit     : instance.referenceImages[].referenceImage  — N reference images
+        val inputResources = mutableListOf<Resource>()
+
+        for ((index, instanceElem) in instances.withIndex()) {
+            val instance = instanceElem.jsonObject
+
+            span.setAttribute(
+                "gen_ai.prompt.$index.content",
+                instance["prompt"]?.jsonPrimitive?.content?.orRedactedInput(),
+            )
+
+            // upscale: single inline input image at instance.image
+            instance["image"]?.jsonObject?.let { image ->
+                parseImagenImage(image)?.let { inputResources.add(it) }
             }
-        }
-        // build resources and other image attributes from the input reference images
-        val referenceImages: List<Pair<Resource, JsonObject>> = buildList {
-            for (instance in instances) {
-                val referenceImages = instance.jsonObject["referenceImages"]?.jsonArray ?: continue
-                for (image in referenceImages) {
-                    // create resource from image data
-                    val imageRef = image.jsonObject["referenceImage"]?.jsonObject ?: continue
-                    val resource = parseImagenImage(imageRef) ?: continue
-                    // save other attributes of this image (excluding "referenceImage")
-                    val attributes = Json.encodeToJsonElement(
-                        image.jsonObject.filterKeys { it != "referenceImage" }
-                    ).jsonObject
-                    add(resource to attributes)
+
+            // edit: per-reference inline input images at instance.referenceImages[].referenceImage
+            (instance["referenceImages"] as? JsonArray)?.forEach { refElem ->
+                val ref = refElem.jsonObject
+                ref["referenceImage"]?.jsonObject?.let { image ->
+                    parseImagenImage(image)?.let { inputResources.add(it) }
                 }
             }
         }
-        // set reference image attributes into span
-        for ((index, attributes) in referenceImages.map { it.second }.withIndex()) {
-            span.setAttribute("tracy.request.referenceImage.$index.attributes", attributes.toString())
+
+        if (inputResources.isNotEmpty()) {
+            val mediaContent = MediaContent(inputResources.map { MediaContentPart(it) })
+            extractor.setUploadableContentAttributes(span, field = "input", mediaContent)
         }
-        // save media content for upload
-        val mediaContent = run {
-            val resources = images + referenceImages.map { it.first }
-            MediaContent(parts = resources.map { MediaContentPart(it) })
-        }
-        extractor.setUploadableContentAttributes(span, field = "input", mediaContent)
 
         body["parameters"]?.let { span.setAttribute("tracy.request.imagen.parameters", it.toString()) }
     }
@@ -79,7 +82,7 @@ class GeminiImagenHandler(
         for ((index, prediction) in predictions.withIndex()) {
             span.setAttribute(
                 "gen_ai.completion.$index.content",
-                prediction.jsonObject["prompt"]?.jsonPrimitive?.content
+                prediction.jsonObject["prompt"]?.jsonPrimitive?.content?.orRedactedOutput(),
             )
         }
         val resources = parseImagenImages(predictions)

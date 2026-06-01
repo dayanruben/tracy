@@ -12,6 +12,7 @@ import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_SYSTEM
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import mu.KotlinLogging
@@ -71,9 +72,15 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
         // Pre-allocate in case the span reaches the limit
         span.setAttribute(DROPPED_ATTRIBUTES_COUNT_ATTRIBUTE_KEY, 0L)
 
-        getRequestBodyAttributes(span, request)
+        // Set core identification attributes before provider-specific parsing so they
+        // are always recorded even if getRequestBodyAttributes throws an exception.
         span.setAttribute("gen_ai.api_base", "${request.url.scheme}://${request.url.host}")
         span.setAttribute(GEN_AI_SYSTEM, genAISystem)
+        span.setAttribute("gen_ai.provider.name", genAISystem)
+        span.setAttribute("server.address", request.url.host)
+        span.setAttribute("server.port", request.url.port.toLong())
+
+        getRequestBodyAttributes(span, request)
 
         return@runCatching
     }.getOrElse { exception ->
@@ -83,12 +90,22 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
 
     fun registerResponse(span: Span, response: TracyHttpResponse): Unit =
         runCatching {
+            // Always set HTTP status and error state, regardless of whether the body is parseable
+            span.setAttribute("http.status_code", response.code.toLong())
+            span.setAttribute("http.response.status_code", response.code.toLong())
+
+            if (response.isError()) {
+                getResponseErrorBodyAttributes(span, response)
+                span.setStatus(StatusCode.ERROR)
+            } else {
+                span.setStatus(StatusCode.OK)
+            }
+
             val contentType = response.contentType
             // install the content type of the response body
             contentType?.asString()?.let {
                 span.setAttribute("gen_ai.completion.content.type", it)
             }
-
             // set response body attributes only for non-stream content types;
             // stream events are handled by `registerResponseStreamEvent`
             val mimeType = contentType?.mimeType
@@ -106,6 +123,7 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
             }
 
             span.setAttribute("http.status_code", response.code.toLong())
+            span.setAttribute("http.response.status_code", response.code.toLong())
 
             if (response.isError()) {
                 getResponseErrorBodyAttributes(span, response)
@@ -128,15 +146,12 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
         }
 
     protected open fun getResponseErrorBodyAttributes(span: Span, response: TracyHttpResponse) {
-        // parse only `application/json` responses
-        if (response.contentType?.mimeType != TracyContentType.Application.Json.mimeType) {
-            return
-        }
-        val body = response.body.asJson()?.jsonObject ?: return
-
-        body["error"]?.jsonObject?.let { error ->
+        response.body.asJson()?.jsonObject["error"]?.jsonObject?.let { error ->
             error["message"]?.jsonPrimitive?.let { span.setAttribute("gen_ai.error.message", it.content) }
-            error["type"]?.jsonPrimitive?.let { span.setAttribute("gen_ai.error.type", it.content) }
+            error["type"]?.jsonPrimitive?.let {
+                span.setAttribute("gen_ai.error.type", it.content)
+                span.setAttribute("error.type", it.content)
+            }
             error["param"]?.jsonPrimitive?.let { span.setAttribute("gen_ai.error.param", it.content) }
             error["code"]?.jsonPrimitive?.let { span.setAttribute("gen_ai.error.code", it.content) }
         }
@@ -214,7 +229,8 @@ abstract class LLMTracingAdapter(private val genAISystem: String) {
             body.entries.forEach { (key, value) ->
                 if (key !in (mappedAttributes)) {
                     val attributeKey = "tracy.${payloadType.value}.$key"
-                    setAttribute(attributeKey, value.toString())
+                    val attributeValue = if (value is JsonPrimitive) value.content else value.toString()
+                    setAttribute(attributeKey, attributeValue)
                 }
             }
         }

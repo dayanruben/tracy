@@ -8,17 +8,17 @@ package org.jetbrains.ai.tracy.openai.adapters.handlers.videos.routes
 import io.opentelemetry.api.trace.Span
 import kotlinx.serialization.json.jsonObject
 import mu.KotlinLogging
+import org.jetbrains.ai.tracy.core.adapters.handlers.RouteHandler
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpRequest
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpResponse
 import org.jetbrains.ai.tracy.core.http.protocol.asJson
-import org.jetbrains.ai.tracy.openai.adapters.handlers.videos.VideosOpenAIApiEndpointHandler
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Handles [VideosOpenAIApiEndpointHandler.VideoRoute.GET_VIDEO] endpoint: `GET /videos/{video_id}`.
+ * Handles the `GET /videos/{video_id}` endpoint.
  */
-internal class GetVideoHandler : VideoRouteHandler {
+internal class GetVideoHandler : RouteHandler {
     /**
      * Request: Path parameter video_id
      */

@@ -12,8 +12,11 @@ import org.jetbrains.ai.tracy.core.adapters.media.MediaContentExtractorImpl
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpRequest
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpResponse
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpUrl
+import org.jetbrains.ai.tracy.gemini.adapters.handlers.cachedcontents.GeminiCachedContentsHandler
 import org.jetbrains.ai.tracy.gemini.adapters.handlers.GeminiContentGenHandler
+import org.jetbrains.ai.tracy.gemini.adapters.handlers.GeminiEmbedHandler
 import org.jetbrains.ai.tracy.gemini.adapters.handlers.GeminiImagenHandler
+import org.jetbrains.ai.tracy.gemini.adapters.handlers.GeminiVertexEmbedHandler
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.*
 import org.jetbrains.ai.tracy.core.http.parsers.SseEvent
@@ -44,12 +47,23 @@ import org.jetbrains.ai.tracy.core.http.parsers.SseEvent
  */
 class GeminiLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiSystemIncubatingValues.GEMINI) {
     override fun getRequestBodyAttributes(span: Span, request: TracyHttpRequest) {
-        val (model, operation) = request.url.modelAndOperation()
-
-        model?.let { span.setAttribute(GEN_AI_REQUEST_MODEL, model) }
-        operation?.let { span.setAttribute(GEN_AI_OPERATION_NAME, operation) }
-
         val handler = selectHandler(request.url)
+
+        // cachedContents URLs don't follow the `model:operation` path format; the handler sets
+        // gemini.api.type and gen_ai.operation.name itself based on the HTTP method.
+        if (handler !is GeminiCachedContentsHandler) {
+            val (model, operation) = request.url.modelAndOperation()
+            model?.let { span.setAttribute(GEN_AI_REQUEST_MODEL, model) }
+            // For embed URLs that arrive as `:predict` (e.g., via a LiteLLM proxy or direct
+            // Vertex AI call), override the operation name to the canonical "embedContent"
+            // value instead of the raw "predict".
+            if (handler is GeminiEmbedHandler || handler is GeminiVertexEmbedHandler) {
+                span.setAttribute(GEN_AI_OPERATION_NAME, "embedContent")
+            } else {
+                operation?.let { span.setAttribute(GEN_AI_OPERATION_NAME, operation) }
+            }
+        }
+
         handler.handleRequestAttributes(span, request)
     }
 
@@ -72,6 +86,9 @@ class GeminiLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiSystemIncub
 
     private fun selectHandler(url: TracyHttpUrl): EndpointApiHandler = when {
         url.isImagenUrl() -> GeminiImagenHandler(extractor)
+        url.isNativeEmbedUrl() -> GeminiEmbedHandler()
+        url.isVertexEmbedUrl() -> GeminiVertexEmbedHandler()
+        url.isGeminiCachedContentsUrl() -> GeminiCachedContentsHandler()
         else -> GeminiContentGenHandler(extractor)
     }
 
@@ -85,6 +102,19 @@ class GeminiLLMTracingAdapter : LLMTracingAdapter(genAISystem = GenAiSystemIncub
         val (model, operation) = this.modelAndOperation()
         return (model?.startsWith("imagen") == true) && (operation == "predict")
     }
+
+    /** Native Gemini `models.embedContent` endpoint (generativelanguage.googleapis.com). */
+    private fun TracyHttpUrl.isNativeEmbedUrl(): Boolean =
+        modelAndOperation().second == "embedContent"
+
+    /** Vertex AI `:predict` endpoint with an embedding model (us-*.aiplatform.googleapis.com or LiteLLM proxy). */
+    private fun TracyHttpUrl.isVertexEmbedUrl(): Boolean {
+        val (model, operation) = this.modelAndOperation()
+        return operation == "predict" && model?.contains("embedding", ignoreCase = true) == true
+    }
+
+    private fun TracyHttpUrl.isGeminiCachedContentsUrl(): Boolean =
+        this.pathSegments.contains("cachedContents")
 
     private companion object {
         private val extractor: MediaContentExtractor = MediaContentExtractorImpl()

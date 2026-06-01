@@ -16,8 +16,10 @@ import org.jetbrains.ai.tracy.core.policy.ContentKind
 import org.jetbrains.ai.tracy.core.policy.contentTracingAllowed
 import org.jetbrains.ai.tracy.core.policy.orRedactedInput
 import org.jetbrains.ai.tracy.core.policy.orRedactedOutput
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
+import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.*
 import kotlinx.serialization.json.*
 import org.jetbrains.ai.tracy.core.adapters.handlers.sse.sseHandlingFailure
@@ -32,6 +34,7 @@ internal class ResponsesOpenAIApiEndpointHandler(
     override fun handleRequestAttributes(span: Span, request: TracyHttpRequest) {
         val body = request.body.asJson()?.jsonObject ?: return
         OpenAIApiUtils.setCommonRequestAttributes(span, request)
+        span.setAttribute(GEN_AI_OPERATION_NAME, "generate_content")
 
         body["previous_response_id"]?.jsonPrimitive?.contentOrNull?.let {
             span.setAttribute("gen_ai.request.previous_response_id", it)
@@ -141,6 +144,7 @@ internal class ResponsesOpenAIApiEndpointHandler(
     override fun handleResponseAttributes(span: Span, response: TracyHttpResponse) {
         val body = response.body.asJson()?.jsonObject ?: return
         OpenAIApiUtils.setCommonResponseAttributes(span, response = body)
+        span.setAttribute(GEN_AI_OPERATION_NAME, "generate_content")
         parseResponseAttributes(span, response = body)
     }
 
@@ -153,15 +157,49 @@ internal class ResponsesOpenAIApiEndpointHandler(
             Json.parseToJsonElement(event.data).jsonObject
         }.getOrNull() ?: return@runCatching sseHandlingFailure("Failed to parse SSE event")
 
-        val type = data["type"]?.jsonPrimitive?.content
-        if (type == "response.completed") {
-            val response = data["response"]?.jsonObject
-                ?: return@runCatching sseHandlingFailure("Failed to parse response object")
+        when (data["type"]?.jsonPrimitive?.content) {
+            "response.output_text.delta" -> {
+                // Incremental text deltas for an output item. Accumulate into completion.0.content.
+                val delta = data["delta"]?.jsonPrimitive?.contentOrNull
+                if (!delta.isNullOrEmpty()) {
+                    if (contentTracingAllowed(ContentKind.OUTPUT)) {
+                        val previousDeltas = (span as? ReadableSpan)?.attributes
+                            ?.get(AttributeKey.stringKey("gen_ai.completion.0.content")) ?: ""
+                        val content = previousDeltas + delta
+                        span.setAttribute("gen_ai.completion.0.content", content.orRedactedOutput())
+                    } else {
+                        // Ensure the attribute exists as a redacted placeholder when tracing is disallowed.
+                        span.setAttribute("gen_ai.completion.0.content", "".orRedactedOutput())
+                    }
+                }
+            }
 
-            OpenAIApiUtils.setCommonResponseAttributes(span, response)
-            parseResponseAttributes(span, response)
+            "response.output_text.done" -> {
+                // Authoritative final text for an output item. Overrides accumulated deltas
+                // (they should be equivalent when both delta+done events are emitted).
+                data["text"]?.jsonPrimitive?.contentOrNull?.let {
+                    span.setAttribute("gen_ai.completion.0.content", it.orRedactedOutput())
+                }
+            }
 
-            span.setAttribute("gen_ai.completion.0.finish_reason", "stop")
+            "response.completed" -> {
+                val response = data["response"]?.jsonObject
+                    ?: return@runCatching sseHandlingFailure("Failed to parse response object")
+
+                OpenAIApiUtils.setCommonResponseAttributes(span, response)
+                // Re-apply the OTel operation name to override what setCommonResponseAttributes
+                // writes from the response `object` field (e.g. "response"). See the request-side
+                // setter and the OTel registry for the semantic value.
+                span.setAttribute(GEN_AI_OPERATION_NAME, "generate_content")
+                parseResponseAttributes(span, response)
+
+                // Set both the spec attribute (list) and the per-completion attribute. The spec
+                // value is what `BaseOpenAITracingTest.validateStreaming` and observability backends
+                // expect; the per-completion attribute is kept for parity with non-streaming output
+                // parsing in `parseResponseAttributes`.
+                span.setAttribute(GEN_AI_RESPONSE_FINISH_REASONS, listOf("stop"))
+                span.setAttribute("gen_ai.completion.0.finish_reason", "stop")
+            }
         }
 
         return@runCatching Result.success(Unit)
@@ -173,6 +211,19 @@ internal class ResponsesOpenAIApiEndpointHandler(
     }
 
     private fun parseResponseAttributes(span: Span, response: JsonObject) {
+        response["object"]?.jsonPrimitive?.contentOrNull?.let {
+            span.setAttribute("tracy.response.object", it)
+        }
+        response["status"]?.jsonPrimitive?.contentOrNull?.let {
+            span.setAttribute("tracy.response.status", it)
+        }
+        response["created_at"]?.jsonPrimitive?.longOrNull?.let {
+            span.setAttribute("tracy.response.created_at", it)
+        }
+        response["completed_at"]?.jsonPrimitive?.longOrNull?.let {
+            span.setAttribute("tracy.response.completed_at", it)
+        }
+
         // we manually map `output` and `usage` attributes;
         // the rest of attributes get mapped by `populateUnmappedAttributes` below.
         response["output"]?.let { outputs ->
@@ -432,6 +483,9 @@ internal class ResponsesOpenAIApiEndpointHandler(
 
         "output",
         "usage",
+        "status",
+        "created_at",
+        "completed_at",
     )
 
     private val mappedAttributes = mappedRequestAttributes + mappedResponseAttributes

@@ -9,6 +9,7 @@ import io.opentelemetry.api.trace.Span
 import mu.KotlinLogging
 import org.jetbrains.ai.tracy.core.adapters.handlers.EndpointApiHandler
 import org.jetbrains.ai.tracy.core.adapters.handlers.sse.sseHandlingUnsupported
+import org.jetbrains.ai.tracy.core.adapters.handlers.RouteHandler
 import org.jetbrains.ai.tracy.core.adapters.media.MediaContentExtractor
 import org.jetbrains.ai.tracy.core.http.parsers.SseEvent
 import org.jetbrains.ai.tracy.core.http.protocol.TracyHttpRequest
@@ -37,7 +38,7 @@ internal class VideosOpenAIApiEndpointHandler(
     /**
      * Registry of route handlers, initialized lazily to avoid creating handlers until needed.
      */
-    private val routeHandlers: Map<VideoRoute, VideoRouteHandler> by lazy {
+    private val routeHandlers: Map<VideoRoute, RouteHandler> by lazy {
         mapOf(
             VideoRoute.CREATE to CreateVideoHandler(extractor),
             VideoRoute.GET_VIDEO to GetVideoHandler(),
@@ -49,6 +50,7 @@ internal class VideosOpenAIApiEndpointHandler(
     }
 
     override fun handleRequestAttributes(span: Span, request: TracyHttpRequest) {
+        span.setAttribute("openai.api.type", "videos")
         val route = detectRoute(request.url, request.method)
         routeHandlers[route]?.handleRequest(span, request)
     }
